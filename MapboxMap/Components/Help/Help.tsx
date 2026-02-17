@@ -177,17 +177,17 @@ const HelpWrapper = styled.div`
 
 const HelpRoot = styled.div<{ $visible: boolean }>`
   position: absolute;
-  bottom: ${(props) => (props.$visible ? '10px' : '-700px')};
+  bottom: ${(props) => (props.$visible ? '20px' : '-700px')};
   left: 50%;
-  transform: translate(-50%, 0);
+  transform: translate(-50%, 0%);
   transition: bottom 0.3s ease-in-out;
   border-radius: 15px;
   border-top-right-radius: 15px;
   padding: 15px 30px;
   width: 400px;
   background-color: var(--site-background);
-  -webkit-box-shadow: 0px 10px 15px 5px rgba(0, 0, 0, 0.3);
-  box-shadow: 0px 10px 15px 5px rgba(0, 0, 0, 0.3);
+  -webkit-box-shadow: 0px 10px 15px 5px rgba(0, 0, 0, 0.05);
+  box-shadow: 0px 10px 15px 5px rgba(0, 0, 0, 0.05);
   color: var(--text-color);
   @media screen and (max-width: 711px) {
     width: 280px;

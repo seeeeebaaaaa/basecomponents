@@ -6,24 +6,38 @@ import { useContext, useEffect, useRef } from 'react'
 /** Adds the standard Mapbox navigation control (zoom + compass). */
 export const NavigationControl = ({
   position = 'top-right',
+  showWhenActivated = false,
 }: {
   position?: CTRLPositions
+  /** When true, the control is only shown while the map is interactive. */
+  showWhenActivated?: boolean
 }) => {
-  const context = useContext(MapContext)
+  const { map, isInteractive } = useContext(MapContext)
   const controlRef = useRef<mapboxgl.NavigationControl | undefined>()
 
+  const shouldShow = !showWhenActivated || !!isInteractive
+
   useEffect(() => {
-    if (!context.map || controlRef.current) return
+    if (!map) return
 
-    const nav = new mapboxgl.NavigationControl()
-    context.map.addControl(nav, position)
-    controlRef.current = nav
+    if (shouldShow && !controlRef.current) {
+      const nav = new mapboxgl.NavigationControl()
+      map.addControl(nav, position)
+      controlRef.current = nav
+    }
 
-    return () => {
-      context.map?.removeControl(nav)
+    if (!shouldShow && controlRef.current) {
+      map.removeControl(controlRef.current)
       controlRef.current = undefined
     }
-  }, [position, context.map])
+
+    return () => {
+      if (controlRef.current && map) {
+        map.removeControl(controlRef.current)
+        controlRef.current = undefined
+      }
+    }
+  }, [position, map, shouldShow])
 
   return null
 }

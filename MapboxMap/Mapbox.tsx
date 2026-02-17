@@ -98,6 +98,13 @@ export const MapboxMap = ({
   /** Enables scroll zoom and drag pan, scrolls to map target. */
   function activateInteraction () {
     if (map.current) {
+      // Save current view before enabling interaction so we can return to it
+      setViewToReturnTo({
+        center: map.current.getCenter(),
+        zoom: map.current.getZoom(),
+        bearing: map.current.getBearing(),
+        pitch: map.current.getPitch(),
+      })
       map.current.scrollZoom.enable()
       map.current.dragPan.enable()
     }
@@ -120,8 +127,8 @@ export const MapboxMap = ({
         map.current.flyTo({
           center: viewToReturnTo.center,
           zoom: viewToReturnTo.zoom,
-          bearing: 90,
-          pitch: 0
+          bearing: viewToReturnTo.bearing ?? 0,
+          pitch: viewToReturnTo.pitch ?? 0,
         })
       }
     }

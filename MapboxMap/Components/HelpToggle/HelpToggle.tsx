@@ -42,7 +42,7 @@ const HelpToggleRoot = styled.button<{
   color: ${(props) =>
     props.$helpVisible ? 'var(--red-main)' : 'var(--brandblue-main)'};
   width: 60px;
-  background-color: var(--site-background);
+  background-color: var(--gray-4);
   padding: 18px 20px 15px 20px;
   border-radius: 2px;
   text-transform: uppercase;
