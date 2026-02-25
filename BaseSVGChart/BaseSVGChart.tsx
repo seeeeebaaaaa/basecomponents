@@ -1,5 +1,4 @@
-import { FrequencyType } from 'components/Calculator/Calculator'
-import { scaleLinear, max, extent } from 'd3'
+import { scaleLinear, extent } from 'd3'
 import { useMemo, useRef } from 'react'
 import styled from 'styled-components'
 import { useResizeObserver } from 'usehooks-ts'
