@@ -1,10 +1,21 @@
-import { ReactNode, createContext, useEffect, useRef, useState } from 'react'
+import {
+  ReactNode,
+  createContext,
+  useCallback,
+  useEffect,
+  useRef,
+  useState
+} from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 
 import styled from 'styled-components'
 
-import { DefaultsType, MapContextType } from './Types/mapboxtypes'
+import {
+  DefaultsType,
+  DisabledFeature,
+  MapContextType
+} from './Types/mapboxtypes'
 import { Help } from './Components/Help'
 import { useWindowSize } from 'usehooks-ts'
 import smoothscroll from 'smoothscroll-polyfill'
@@ -16,7 +27,7 @@ mapboxgl.accessToken =
   'pk.eyJ1IjoidGEtaW50ZXJha3RpdiIsImEiOiJjaXNhNGFsdHAwMDB2Mm9wNWdlMTlqMTNuIn0.uj5aGvF3yvEM4V6kNdlbVg'
 
 const MapboxDefaults = {
-  pointerColor: '#fff'
+  pointerColor: 'var(--site-background)'
 }
 
 /** Updates a default value in the MapboxDefaults config. */
@@ -32,13 +43,25 @@ export const MapboxMap = ({
   colorMode = 'light',
   lang = 'de',
   scrollTarget,
-  getMap
+  getMap,
+  initialView,
+  height: heightProp,
+  disabledFeatures = []
 }: {
   children?: ReactNode
   colorMode?: 'dark' | 'light' | undefined
   lang?: 'de' | 'fr' | undefined
   scrollTarget?: HTMLDivElement | null
   getMap?: (e: mapboxgl.Map) => void
+  initialView?: {
+    bounds?: [[number, number], [number, number]]
+    center?: { lng: number; lat: number }
+    zoom?: number
+    bearing?: number
+    pitch?: number
+  }
+  height?: number | string
+  disabledFeatures?: DisabledFeature[]
 }) => {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | undefined>()
@@ -46,6 +69,7 @@ export const MapboxMap = ({
 
   const [terrainActive, setTerrainActive] = useState(false)
   const [isInteractive, setIsInteractive] = useState(false)
+  const [cooperativeGestures, setCooperativeGestures] = useState(false)
   const [helpVisible, setShowHelp] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const windowSize = useWindowSize()
@@ -95,7 +119,7 @@ export const MapboxMap = ({
     setTerrainActive(false)
   }
 
-  /** Enables scroll zoom and drag pan, scrolls to map target. */
+  /** Enables scroll zoom and drag pan, scrolls to map target. Respects disabledFeatures. */
   function activateInteraction () {
     if (map.current) {
       // Save current view before enabling interaction so we can return to it
@@ -103,10 +127,16 @@ export const MapboxMap = ({
         center: map.current.getCenter(),
         zoom: map.current.getZoom(),
         bearing: map.current.getBearing(),
-        pitch: map.current.getPitch(),
+        pitch: map.current.getPitch()
       })
       map.current.scrollZoom.enable()
       map.current.dragPan.enable()
+
+      if (disabledFeatures.includes('rotation')) {
+        map.current.dragRotate.disable()
+        map.current.touchZoomRotate.disableRotation()
+        map.current.touchPitch.disable()
+      }
     }
     if (scrollTarget) {
       scrollTarget.scrollIntoView({
@@ -128,7 +158,7 @@ export const MapboxMap = ({
           center: viewToReturnTo.center,
           zoom: viewToReturnTo.zoom,
           bearing: viewToReturnTo.bearing ?? 0,
-          pitch: viewToReturnTo.pitch ?? 0,
+          pitch: viewToReturnTo.pitch ?? 0
         })
       }
     }
@@ -136,9 +166,10 @@ export const MapboxMap = ({
     setIsInteractive(false)
   }
 
-  /** Handles perspective and interaction property changes. */
+  /** Handles perspective and interaction property changes. Respects disabledFeatures. */
   function handlePropChange (prop: string, value: any) {
     if (prop === 'perspective') {
+      if (disabledFeatures.includes('perspective')) return
       if (value) {
         activateTerrain()
       } else {
@@ -158,6 +189,20 @@ export const MapboxMap = ({
     setShowHelp(e)
   }
 
+  /** Enables or disables cooperative gestures on the map. */
+  const handleSetCooperativeGestures = useCallback((enabled: boolean) => {
+    if (!map.current) return
+    map.current.setCooperativeGestures(enabled)
+    if (enabled) {
+      map.current.scrollZoom.enable()
+      map.current.dragPan.enable()
+    } else {
+      map.current.scrollZoom.disable()
+      map.current.dragPan.disable()
+    }
+    setCooperativeGestures(enabled)
+  }, [])
+
   // Initialize the map once
   useEffect(() => {
     if (map.current) return
@@ -165,7 +210,30 @@ export const MapboxMap = ({
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/streets-v12',
-      zoom: 5
+      bounds: initialView?.bounds,
+      center: initialView?.center,
+      zoom: initialView?.zoom,
+      bearing: initialView?.bearing,
+      pitch: initialView?.pitch,
+      locale:
+        lang === 'de'
+          ? {
+              'ScrollZoomBlocker.CtrlMessage':
+                'Strg + Scrollen zum Zoomen der Karte',
+              'ScrollZoomBlocker.CmdMessage':
+                '\u2318 + Scrollen zum Zoomen der Karte',
+              'TouchPanBlocker.Message': 'Karte mit zwei Fingern bewegen'
+            }
+          : lang === 'fr'
+          ? {
+              'ScrollZoomBlocker.CtrlMessage':
+                'Ctrl + défilement pour zoomer la carte',
+              'ScrollZoomBlocker.CmdMessage':
+                '\u2318 + défilement pour zoomer la carte',
+              'TouchPanBlocker.Message':
+                'Utilisez deux doigts pour déplacer la carte'
+            }
+          : undefined
     })
     map.current.scrollZoom.disable()
     map.current.dragPan.disable()
@@ -188,6 +256,9 @@ export const MapboxMap = ({
       console.log('pitch', map.current.getPitch())
     })
 
+    map.current.once('load', () => {
+      map.current?.resize()
+    })
     setMapReady(true)
     getMap?.(map.current)
   }, [])
@@ -210,7 +281,10 @@ export const MapboxMap = ({
       helpVisible,
       terrainActive,
       isInteractive,
-      changeDefault
+      changeDefault,
+      disabledFeatures,
+      cooperativeGestures,
+      setCooperativeGestures: handleSetCooperativeGestures
     })
   }, [
     helpVisible,
@@ -218,61 +292,54 @@ export const MapboxMap = ({
     terrainActive,
     viewToReturnTo,
     isMobile,
-    mapReady
+    mapReady,
+    cooperativeGestures
   ])
 
-  return (
-    <MapWrapper
-      style={{
-        maxWidth: '100vw',
-        overflow: 'hidden'
-      }}
-    >
-      <FullScreenContainer
-        className='fullscreen-container'
-        style={{
-          position: 'relative',
-          top: 0,
-          height: '100%'
-        }}
-      >
-        <MapContext.Provider value={currentContext}>
-          {height && (
-            <MapContainer
-              className='map-container'
-              $pointerColor={MapboxDefaults.pointerColor}
-              $isInteractive={isInteractive}
-              ref={mapContainer}
-              $minHeight={height * 0.85}
-            />
-          )}
+  const mapHeight =
+    heightProp != null
+      ? typeof heightProp === 'number'
+        ? `${heightProp}px`
+        : heightProp
+      : '100%'
 
-          {children}
+  return (
+    <MapContext.Provider value={currentContext}>
+      <MapWrapper style={{ maxWidth: '100vw' }}>
+        <FullScreenContainer
+          className='fullscreen-container'
+          style={{ height: mapHeight }}
+        >
+          <MapContainer
+            className='map-container'
+            $pointerColor={MapboxDefaults.pointerColor}
+            $isInteractive={isInteractive}
+            ref={mapContainer}
+          />
           <Help visible={helpVisible} />
-        </MapContext.Provider>
-      </FullScreenContainer>
-    </MapWrapper>
+        </FullScreenContainer>
+        {children}
+      </MapWrapper>
+    </MapContext.Provider>
   )
 }
 
 const MapWrapper = styled.div`
   position: relative;
-  overflow: hidden;
 `
 const FullScreenContainer = styled.div`
+  position: relative;
   width: 100%;
-  height: 100%;
+  overflow: hidden;
 `
 const MapContainer = styled.div<{
   $pointerColor: string | undefined
   $isInteractive: boolean
-  $minHeight: number
 }>`
   position: relative;
   width: 100%;
-  min-height: ${props => props.$minHeight}px;
   height: 100%;
-  @media screen and (max-width: 711px) {
+  @media screen and (max-width: 768px) {
     .mapboxgl-ctrl-bottom-left {
       bottom: 0px;
       overflow: visible;
@@ -287,7 +354,15 @@ const MapContainer = styled.div<{
       padding-top: 5px;
     }
   }
-
+  .mapboxgl-popup {
+    max-width: unset !important;
+    @media screen and (max-width: 768px) {
+      max-width: 330px !important;
+    }
+  }
+  .mapboxgl-popup-close-button {
+    font-size: 20px;
+  }
   // ANNOTATION POPUP POINTER
   .mapboxgl-popup-anchor-top .mapboxgl-popup-tip,
   .mapboxgl-popup-anchor-top-left .mapboxgl-popup-tip,
@@ -311,7 +386,7 @@ const MapContainer = styled.div<{
     display: block;
   }
   .mapboxgl-popup-content {
-    pointer-events: none;
+    /* pointer-events: none; */
     padding: 0;
   }
   .mapboxgl-ctrl-attrib {
@@ -355,5 +430,49 @@ const MapContainer = styled.div<{
   }
   .mapboxgl-ctrl-group {
     float: unset;
+  }
+  .mapboxgl-scroll-zoom-blocker,
+  .mapboxgl-touch-pan-blocker {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 14px;
+    color: #fff;
+    background-color: rgba(0, 0, 0, 0.5);
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .mapboxgl-scroll-zoom-blocker-show,
+  .mapboxgl-touch-pan-blocker-show {
+    visibility: visible;
+    opacity: 1;
+  }
+  .mapboxgl-scroll-zoom-blocker {
+    max-width: 500px;
+    max-height: 300px;
+
+    margin-left: 50%;
+    margin-top: 50%;
+
+    transform: translate(-50%, -80%);
+    border-radius: 10px;
+  }
+  .mapboxgl-touch-pan-blocker {
+    max-width: 80vw;
+    max-height: 20vh;
+
+    margin-left: 50%;
+    margin-top: 50%;
+
+    transform: translate(-50%, 0vh);
+    border-radius: 10px;
   }
 `

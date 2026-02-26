@@ -12,16 +12,17 @@ export const NavigationControl = ({
   /** When true, the control is only shown while the map is interactive. */
   showWhenActivated?: boolean
 }) => {
-  const { map, isInteractive } = useContext(MapContext)
+  const { map, isInteractive, disabledFeatures } = useContext(MapContext)
   const controlRef = useRef<mapboxgl.NavigationControl | undefined>()
 
   const shouldShow = !showWhenActivated || !!isInteractive
+  const showCompass = !disabledFeatures?.includes('rotation')
 
   useEffect(() => {
     if (!map) return
 
     if (shouldShow && !controlRef.current) {
-      const nav = new mapboxgl.NavigationControl()
+      const nav = new mapboxgl.NavigationControl({ showCompass })
       map.addControl(nav, position)
       controlRef.current = nav
     }

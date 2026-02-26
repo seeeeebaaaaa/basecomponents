@@ -1,5 +1,5 @@
 import { MapContext } from 'components/MapboxMap/Mapbox'
-import { useContext } from 'react'
+import { useContext, useEffect } from 'react'
 import styled from 'styled-components'
 import { HelpToggle } from '../HelpToggle'
 
@@ -11,17 +11,26 @@ const InteractiveToggleDefaults: {
   labelOff: 'Karte deaktivieren'
 }
 
+/** Toggles map interactivity. When cooperativeGestures is true, uses native Mapbox overlay instead. */
 export const InteractiveToggle = ({
   isOutside = false,
-  onDeactivate
+  onDeactivate,
+  cooperativeGestures: cooperativeGesturesProp = false
 }: {
   isOutside?: boolean
   onDeactivate?: () => void
+  cooperativeGestures?: boolean
 }) => {
-  var { isInteractive, handlePropChange, isMobile } = useContext(MapContext)
+  var { isInteractive, handlePropChange, isMobile, setCooperativeGestures } = useContext(MapContext)
+
+  useEffect(() => {
+    setCooperativeGestures?.(cooperativeGesturesProp)
+  }, [cooperativeGesturesProp, setCooperativeGestures])
+
+  if (cooperativeGesturesProp) return null
 
   return (
-    <InteractiveToggleArea $isOutside={isOutside}>
+    <InteractiveToggleArea $isOutside={isOutside} className='interactive-toggle-area'>
       <InteractiveToggleRoot
         $isOutside={isOutside}
         $isInteractive={!!isInteractive}
@@ -49,6 +58,7 @@ const InteractiveToggleArea = styled.div<{
 }>`
   z-index: 4;
   position: ${props => (props.$isOutside ? '' : 'absolute')};
+  margin-top: ${props => (props.$isOutside ? '10px' : '0px')};
   bottom: 35px;
   width: 100%;
   display: flex;

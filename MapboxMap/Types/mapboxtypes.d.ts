@@ -23,6 +23,8 @@ type DefaultsType = {
   pointerColor: string
 }
 
+type DisabledFeature = 'perspective' | 'rotation'
+
 type MapContextType = {
   map?: mapboxgl.Map | undefined
   isMobile?: boolean
@@ -47,4 +49,7 @@ type MapContextType = {
   changeDefault?: (prop: keyof DefaultsType, value: any) => void
 
   scrollTarget?: HTMLDivElement | null
+  disabledFeatures?: DisabledFeature[]
+  cooperativeGestures?: boolean
+  setCooperativeGestures?: (enabled: boolean) => void
 }

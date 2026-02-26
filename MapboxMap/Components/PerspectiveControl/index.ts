@@ -1,1 +1,1 @@
-export {default} from './PerspectiveControl';
+export { PerspectiveControl } from './PerspectiveControl'
