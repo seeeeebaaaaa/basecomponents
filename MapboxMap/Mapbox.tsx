@@ -237,7 +237,7 @@ export const MapboxMap = ({
     })
     map.current.scrollZoom.disable()
     map.current.dragPan.disable()
-    map.current.once('styledata', () => {
+    map.current.once('idle', () => {
       if (!map.current) return
       setViewToReturnTo({
         center: map.current.getCenter(),
@@ -355,13 +355,16 @@ const MapContainer = styled.div<{
     }
   }
   .mapboxgl-popup {
+    background-color:transparent;
     max-width: unset !important;
     @media screen and (max-width: 768px) {
       max-width: 330px !important;
     }
   }
   .mapboxgl-popup-close-button {
-    font-size: 20px;
+    font-size: 40px;
+    margin-top: 4px;
+    margin-right: 8px;
   }
   // ANNOTATION POPUP POINTER
   .mapboxgl-popup-anchor-top .mapboxgl-popup-tip,
@@ -387,6 +390,8 @@ const MapContainer = styled.div<{
   }
   .mapboxgl-popup-content {
     /* pointer-events: none; */
+    background-color:transparent;
+
     padding: 0;
   }
   .mapboxgl-ctrl-attrib {
@@ -457,13 +462,14 @@ const MapContainer = styled.div<{
   }
   .mapboxgl-scroll-zoom-blocker {
     max-width: 500px;
-    max-height: 300px;
+    max-height: 50px;
 
     margin-left: 50%;
-    margin-top: 50%;
+    margin-top: 10%;
 
     transform: translate(-50%, -80%);
-    border-radius: 10px;
+    border-radius: 4px;
+    background-color: rgba(0, 0, 0, 0.35);
   }
   .mapboxgl-touch-pan-blocker {
     max-width: 80vw;
