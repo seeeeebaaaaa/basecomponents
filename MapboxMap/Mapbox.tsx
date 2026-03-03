@@ -122,13 +122,6 @@ export const MapboxMap = ({
   /** Enables scroll zoom and drag pan, scrolls to map target. Respects disabledFeatures. */
   function activateInteraction () {
     if (map.current) {
-      // Save current view before enabling interaction so we can return to it
-      setViewToReturnTo({
-        center: map.current.getCenter(),
-        zoom: map.current.getZoom(),
-        bearing: map.current.getBearing(),
-        pitch: map.current.getPitch()
-      })
       map.current.scrollZoom.enable()
       map.current.dragPan.enable()
 
@@ -237,16 +230,6 @@ export const MapboxMap = ({
     })
     map.current.scrollZoom.disable()
     map.current.dragPan.disable()
-    map.current.once('idle', () => {
-      if (!map.current) return
-      setViewToReturnTo({
-        center: map.current.getCenter(),
-        zoom: map.current.getZoom(),
-        bearing: map.current.getBearing(),
-        pitch: map.current.getPitch()
-      })
-    })
-
     map.current.on('moveend', () => {
       if (!map.current) return
       console.log('bounds', map.current.getBounds()?.toArray().join(', '))
