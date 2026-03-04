@@ -11,7 +11,7 @@ export const ViewToReturnTo = ({
   center,
   zoom,
   bearing = 0,
-  pitch = 0
+  pitch = 0,
 }: {
   bounds?: [[number, number], [number, number]]
   padding?: number | mapboxgl.PaddingOptions

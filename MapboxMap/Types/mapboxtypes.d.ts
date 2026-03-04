@@ -12,12 +12,16 @@ type MapStyleProps = {
   colorMode?: 'light' | 'dark' | undefined
   lang?: 'de' | 'fr'
 }
-
 type MapAnnotation = {
   pos: { lat: number; lng: number }
   element: JSX.Element
   pointerColor?: string
+  offset?: number | [number, number]
+  connectorStyle?: ConnectorSpecs
+  startMarker?: 'arrow' | 'circle' | 'triangle' | 'none' | string
+  endMarker?: 'arrow' | 'circle' | 'triangle' | 'none' | string
 }
+
 
 type DefaultsType = {
   pointerColor: string

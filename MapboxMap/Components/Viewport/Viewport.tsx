@@ -14,6 +14,7 @@ export const View = ({
   padding,
   pitch,
   minZoom,
+  duration = 10
 }: {
   center?: { lat: number; lng: number }
   zoom?: number
@@ -27,6 +28,7 @@ export const View = ({
   bounds?: [[number, number], [number, number]]
   padding?: number | mapboxgl.PaddingOptions
   pitch?: number
+  duration?: number
 }) => {
   let maxBoundsDesktop
   let maxBoundsMobile
@@ -37,7 +39,7 @@ export const View = ({
 
   return (
     <>
-      {bounds && <FitBounds bounds={bounds} padding={padding} />}
+      {bounds && <FitBounds bounds={bounds} padding={padding} duration={duration} />}
 
       {center && <Center lng={center.lng} lat={center.lat} />}
 

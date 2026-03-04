@@ -4,8 +4,14 @@ import { Fragment, useContext, useEffect, useRef } from 'react'
 import { MapAnnotation } from '../../Types/mapboxtypes'
 import { createRoot, Root } from 'react-dom/client'
 import { MapContext } from 'components/MapboxMap/Mapbox'
+import { PointAnnotation } from 'components/AnnotatedContent/PointAnnotation'
 
-/** Renders map annotations as Mapbox popups with React content. */
+type MapEntry = {
+  root: Root
+  remove: () => void
+}
+
+/** Renders map annotations as Mapbox popups/markers with React content. */
 export const Annotations = ({
   annotations,
   hidePointer = false,
@@ -17,44 +23,65 @@ export const Annotations = ({
 }) => {
   const context = useContext(MapContext)
   const { map, changeDefault } = context
-  const markersRef = useRef<{ popup: mapboxgl.Popup; root: Root }[]>([])
+  const entriesRef = useRef<MapEntry[]>([])
 
   useEffect(() => {
     if (!context.map) return
 
-    // Clean up previous markers and unmount their React roots
-    markersRef.current.forEach(({ popup, root }) => {
-      root.unmount()
-      popup.remove()
+    entriesRef.current.forEach(e => {
+      e.root.unmount()
+      e.remove()
     })
-    markersRef.current = []
+    entriesRef.current = []
 
     annotations.forEach(anno => {
-      const placeholder = document.createElement('div')
-      placeholder.className = 'annotation-placeholder'
-
-      const root = createRoot(placeholder)
-      root.render(<>{anno.element}</>)
-
       if (!map) return
 
-      const popup = new mapboxgl.Popup({
-        closeButton: false,
-        closeOnClick: false
-      })
-        .setLngLat(anno.pos)
-        .setDOMContent(placeholder)
-        .addTo(map)
+      const placeholder = document.createElement('div')
+      placeholder.className = 'annotation-placeholder'
+      const root = createRoot(placeholder)
 
-      markersRef.current.push({ popup, root })
+      if (anno.offset != null) {
+        root.render(
+          <PointAnnotation
+            offset={anno.offset}
+            connectorStyle={anno.connectorStyle}
+            startMarker={anno.startMarker}
+            endMarker={anno.endMarker}
+          >
+            {anno.element}
+          </PointAnnotation>
+        )
+
+        const marker = new mapboxgl.Marker({
+          element: placeholder,
+          anchor: 'center'
+        })
+          .setLngLat(anno.pos)
+          .addTo(map)
+
+        entriesRef.current.push({ root, remove: () => marker.remove() })
+      } else {
+        root.render(<>{anno.element}</>)
+
+        const popup = new mapboxgl.Popup({
+          closeButton: false,
+          closeOnClick: false
+        })
+          .setLngLat(anno.pos)
+          .setDOMContent(placeholder)
+          .addTo(map)
+
+        entriesRef.current.push({ root, remove: () => popup.remove() })
+      }
     })
 
     return () => {
-      markersRef.current.forEach(({ popup, root }) => {
-        root.unmount()
-        popup.remove()
+      entriesRef.current.forEach(e => {
+        e.root.unmount()
+        e.remove()
       })
-      markersRef.current = []
+      entriesRef.current = []
     }
   }, [annotations, map])
 
@@ -76,7 +103,20 @@ const AnnotationLayerComponent = ({
     <HiddenStyledComponentForceCSSInjection>
       {annotations &&
         annotations.map((m: MapAnnotation, i) => (
-          <Fragment key={'annotation_' + i}>{m.element}</Fragment>
+          <Fragment key={'annotation_' + i}>
+            {m.offset != null ? (
+              <PointAnnotation
+                offset={m.offset}
+                connectorStyle={m.connectorStyle}
+                startMarker={m.startMarker}
+                endMarker={m.endMarker}
+              >
+                {m.element}
+              </PointAnnotation>
+            ) : (
+              m.element
+            )}
+          </Fragment>
         ))}
     </HiddenStyledComponentForceCSSInjection>
   )

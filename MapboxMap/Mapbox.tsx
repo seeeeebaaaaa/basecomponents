@@ -203,11 +203,13 @@ export const MapboxMap = ({
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/streets-v12',
-      bounds: initialView?.bounds,
-      center: initialView?.center,
-      zoom: initialView?.zoom,
-      bearing: initialView?.bearing,
-      pitch: initialView?.pitch,
+      ...(initialView && {
+        ...(initialView.bounds && { bounds: initialView.bounds }),
+        ...(initialView.center && { center: initialView.center }),
+        ...(initialView.zoom != null && { zoom: initialView.zoom }),
+        ...(initialView.bearing != null && { bearing: initialView.bearing }),
+        ...(initialView.pitch != null && { pitch: initialView.pitch })
+      }),
       locale:
         lang === 'de'
           ? {
@@ -226,7 +228,8 @@ export const MapboxMap = ({
               'TouchPanBlocker.Message':
                 'Utilisez deux doigts pour déplacer la carte'
             }
-          : undefined
+          : undefined,
+          customAttribution:"Daten: Baumkataster der Städte"
     })
     map.current.scrollZoom.disable()
     map.current.dragPan.disable()
@@ -338,7 +341,7 @@ const MapContainer = styled.div<{
     }
   }
   .mapboxgl-popup {
-    background-color:transparent;
+    background-color: transparent;
     max-width: unset !important;
     @media screen and (max-width: 768px) {
       max-width: 330px !important;
@@ -373,7 +376,7 @@ const MapContainer = styled.div<{
   }
   .mapboxgl-popup-content {
     /* pointer-events: none; */
-    background-color:transparent;
+    background-color: transparent;
 
     padding: 0;
   }
