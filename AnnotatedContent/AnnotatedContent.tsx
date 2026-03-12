@@ -52,6 +52,7 @@ export interface AnnotatedContentProps {
   className?: string
   shapeStyle?: ShapeStyle
   connectorStyle?: ConnectorSpecs
+  markerStyle?: MarkerStyle
   customMarkers?: Record<string, React.ReactNode>
   style?: React.CSSProperties
 }
@@ -73,6 +74,7 @@ export const AnnotatedContent = ({
   annotations = [],
   className = '',
   connectorStyle,
+  markerStyle,
   shapeStyle = {},
   customMarkers,
   style,
@@ -170,6 +172,7 @@ export const AnnotatedContent = ({
     if (isValidElement(annotation.content)) {
       const elementProps = annotation.content.props as {
         connectorStyle?: Record<string, any>;
+        markerStyle?: Record<string, any>;
         shapeStyle?: Record<string, any>;
         customMarkers?: Record<string, React.ReactNode>;
         [key: string]: any;
@@ -181,6 +184,10 @@ export const AnnotatedContent = ({
             connectorStyle: {
               ...connectorStyle,
               ...elementProps.connectorStyle,
+            },
+            markerStyle: {
+              ...markerStyle,
+              ...elementProps.markerStyle,
             },
             shapeStyle: {
               ...shapeStyle,
@@ -202,7 +209,7 @@ export const AnnotatedContent = ({
       </div>
     )
     },
-    [connectorStyle, shapeStyle, customMarkers, width, height]
+    [connectorStyle, markerStyle, shapeStyle, customMarkers, width, height]
   )
 
   const handleContainerClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {

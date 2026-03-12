@@ -2,12 +2,10 @@ import React, { ReactNode, useEffect, useId, useState } from "react";
 import styled from "styled-components";
 import { useIntersectionObserver } from "usehooks-ts";
 
-const defaultConnectorStyle: Required<ConnectorSpecs> = {
+const defaultConnectorStyle: Required<Omit<ConnectorSpecs, "markerSize" | "markerColor">> = {
   type: "straight",
   stroke: "var(--anno-connector-stroke)",
   width: 1,
-  markerSize: 13,
-  markerColor: "white",
   direction: "cw",
   strokeWidth: 1,
   strokeOpacity: 1,
@@ -18,11 +16,19 @@ const defaultConnectorStyle: Required<ConnectorSpecs> = {
   strokeDashoffset: 0,
 };
 
+const defaultMarkerStyle: Required<MarkerStyle> = {
+  size: 13,
+  fill: "white",
+  stroke: "var(--anno-connector-stroke)",
+  strokeWidth: 1,
+};
+
 export const PointAnnotation = ({
   children,
   offset = 0,
 
   connectorStyle,
+  markerStyle,
 
   endMarker = "none",
   startMarker = "none",
@@ -36,10 +42,10 @@ export const PointAnnotation = ({
 }: {
   children?: ReactNode;
   connectorStyle?: ConnectorSpecs;
+  markerStyle?: MarkerStyle;
   endMarker?: "arrow" | "circle" | "triangle" | "none" | string;
   startMarker?: "arrow" | "circle" | "triangle" | "none" | string;
   customMarkers?: Record<string, ReactNode>;
-  markerSize?: number;
   textAnchor?: "left" | "center" | "right";
   padding?: number;
   offset?: number | [number, number];
@@ -69,9 +75,18 @@ export const PointAnnotation = ({
   }, [isIntersecting, animationDelay, hasAnimated]);
 
   const [h, v] = getOffset(offset);
-  const connectorSettings: Required<ConnectorSpecs> = {
+  const connectorSettings = {
     ...defaultConnectorStyle,
     ...connectorStyle,
+  };
+  const markerSettings: Required<MarkerStyle> = {
+    ...defaultMarkerStyle,
+    ...markerStyle,
+    ...(connectorStyle?.markerSize != null && { size: connectorStyle.markerSize }),
+    ...(connectorStyle?.markerColor != null && { fill: connectorStyle.markerColor }),
+    ...(markerStyle?.strokeWidth == null && {
+      strokeWidth: Number(connectorSettings.strokeWidth) || 1,
+    }),
   };
   const connectorDirection = connectorSettings.direction;
   const direction: Direction = getDirection([h, v]);
@@ -104,7 +119,18 @@ export const PointAnnotation = ({
     shiftToBottom = true;
   }
 
-  const markerSize = connectorSettings.markerSize;
+  const { size: markerSize } = markerSettings;
+
+  const hasPaddingOnPathEnd =
+    padding > 0 &&
+    (shiftToLeft || shiftToRight || shiftToTop || shiftToBottom);
+  const markerRadius = markerSize / 2;
+  const startInset =
+    (startMarker !== "none" ? markerRadius : 0) +
+    (startMarker !== "none" && hasPaddingOnPathEnd ? padding : 0);
+  const endInset =
+    (endMarker !== "none" ? markerRadius : 0) +
+    (hasPaddingOnPathEnd ? padding : 0);
 
   // Helper function to get marker URL based on marker type
   const getMarkerUrl = (markerType: string) => {
@@ -140,64 +166,79 @@ export const PointAnnotation = ({
         <defs>
           <marker
             id={`arrow-${id}`}
-            viewBox={`0 0 ${markerSize * 2} ${markerSize * 2}`}
+            markerUnits="userSpaceOnUse"
+            viewBox={`0 0 ${markerSize} ${markerSize}`}
             refX={markerSize}
-            refY={markerSize}
+            refY={markerSize / 2}
             markerWidth={markerSize}
             markerHeight={markerSize}
             orient="auto-start-reverse"
+            overflow="visible"
           >
             <path
-              d={`M 0 0 L ${markerSize * 2} ${markerSize} L 0 ${
-                markerSize * 2
-              } z`}
-              fill={connectorSettings.markerColor || connectorSettings.stroke}
+              d={`M 0 0 L ${markerSize} ${markerSize / 2} L 0 ${markerSize} z`}
+              fill={markerSettings.fill}
+              stroke={markerSettings.stroke}
+              strokeWidth={markerSettings.strokeWidth}
             />
           </marker>
           <marker
             id={`circle-${id}`}
-            viewBox={`0 0 ${markerSize * 2} ${markerSize * 2}`}
-            refX={markerSize}
-            refY={markerSize}
+            markerUnits="userSpaceOnUse"
+            viewBox={`0 0 ${markerSize} ${markerSize}`}
+            refX={markerSize / 2}
+            refY={markerSize / 2}
             markerWidth={markerSize}
             markerHeight={markerSize}
             orient="auto-start-reverse"
+            overflow="visible"
           >
             <circle
-              cx={markerSize}
-              cy={markerSize}
-              r={markerSize}
-              fill={connectorSettings.markerColor || connectorSettings.stroke}
+              cx={markerSize / 2}
+              cy={markerSize / 2}
+              r={markerSize / 2}
+              fill={markerSettings.fill}
+              stroke={markerSettings.stroke}
+              strokeWidth={markerSettings.strokeWidth}
             />
           </marker>
           <marker
             id={`triangle-${id}`}
-            viewBox={`0 0 ${markerSize * 2} ${markerSize * 2}`}
-            refX={markerSize}
+            markerUnits="userSpaceOnUse"
+            viewBox={`0 0 ${markerSize} ${markerSize}`}
+            refX={markerSize / 2}
             refY={markerSize}
             markerWidth={markerSize}
             markerHeight={markerSize}
+            orient="auto-start-reverse"
+            overflow="visible"
           >
             <path
-              d={`M ${markerSize} 0 L ${markerSize * 2} ${markerSize * 2} L 0 ${markerSize * 2} z`}
-              fill={connectorSettings.markerColor || connectorSettings.stroke}
+              d={`M ${markerSize / 2} 0 L ${markerSize} ${markerSize} L 0 ${markerSize} z`}
+              fill={markerSettings.fill}
+              stroke={markerSettings.stroke}
+              strokeWidth={markerSettings.strokeWidth}
             />
           </marker>
-          {customMarkers && Object.entries(customMarkers).map(([key, markerContent]) => (
-            <marker
-              key={key}
-              id={`${key}-${id}`}
-              viewBox={`0 0 ${markerSize * 2} ${markerSize * 2}`}
-          
-              markerWidth={markerSize}
-              markerHeight={markerSize}
-              orient="auto-start-reverse"
-              overflow="visible"
-            >
-              {markerContent}
-            </marker>
-          ))}
+          {customMarkers &&
+            Object.entries(customMarkers).map(([key, markerContent]) => (
+              <marker
+                key={key}
+                id={`${key}-${id}`}
+                markerUnits="userSpaceOnUse"
+                viewBox={`0 0 ${markerSize} ${markerSize}`}
+                refX={markerSize / 2}
+                refY={markerSize / 2}
+                markerWidth={markerSize}
+                markerHeight={markerSize}
+                orient="auto-start-reverse"
+                overflow="visible"
+              >
+                {markerContent}
+              </marker>
+            ))}
         </defs>
+        {/* Marker path: full length so markers stay at original positions */}
         <Path
           d={getLinePath(
             v,
@@ -205,6 +246,23 @@ export const PointAnnotation = ({
             direction,
             connectorDirection,
             connectorSettings.type
+          )}
+          style={{ stroke: "none" }}
+          fill="none"
+          markerStart={getMarkerUrl(startMarker)}
+          markerEnd={getMarkerUrl(endMarker)}
+          $isVisible={isVisible}
+        />
+        {/* Line path: shortened to respect markerSize and padding */}
+        <Path
+          d={getLinePath(
+            v,
+            h,
+            direction,
+            connectorDirection,
+            connectorSettings.type,
+            startInset,
+            endInset
           )}
           style={{
             stroke: connectorSettings.stroke,
@@ -217,8 +275,6 @@ export const PointAnnotation = ({
             strokeOpacity: connectorSettings.strokeOpacity,
           }}
           fill="none"
-          markerEnd={getMarkerUrl(startMarker)}
-          markerStart={getMarkerUrl(endMarker)}
           $isVisible={isVisible}
         />
       </LineSvg>
@@ -326,17 +382,86 @@ function getLinePoints(v: number, h: number) {
   return { sx, sy, ex, ey };
 }
 
+/** Shortens a line segment by moving endpoints inward along the segment direction. */
+function shortenSegment(
+  sx: number,
+  sy: number,
+  ex: number,
+  ey: number,
+  startInset: number,
+  endInset: number
+) {
+  const dx = ex - sx;
+  const dy = ey - sy;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len === 0) return { sx, sy, ex, ey };
+  const ux = dx / len;
+  const uy = dy / len;
+  const newSx = sx + ux * Math.min(startInset, len / 2);
+  const newSy = sy + uy * Math.min(startInset, len / 2);
+  const newEx = ex - ux * Math.min(endInset, len / 2);
+  const newEy = ey - uy * Math.min(endInset, len / 2);
+  return { sx: newSx, sy: newSy, ex: newEx, ey: newEy };
+}
+
+/** Shortens curved path endpoints using tangent direction at each end. */
+function shortenCurvedEndpoints(
+  sx: number,
+  sy: number,
+  ex: number,
+  ey: number,
+  c1x: number,
+  c1y: number,
+  c2x: number,
+  c2y: number,
+  startInset: number,
+  endInset: number
+) {
+  let nsx = sx,
+    nsy = sy,
+    nex = ex,
+    ney = ey;
+  if (startInset > 0) {
+    const tx = c1x - sx;
+    const ty = c1y - sy;
+    const len = Math.sqrt(tx * tx + ty * ty) || 1;
+    nsx = sx + (tx / len) * startInset;
+    nsy = sy + (ty / len) * startInset;
+  }
+  if (endInset > 0) {
+    const tx = ex - c2x;
+    const ty = ey - c2y;
+    const len = Math.sqrt(tx * tx + ty * ty) || 1;
+    nex = ex - (tx / len) * endInset;
+    ney = ey - (ty / len) * endInset;
+  }
+  return { sx: nsx, sy: nsy, ex: nex, ey: ney };
+}
+
 function getLinePath(
   v: number,
   h: number,
   direction: Direction,
   curveDirection: "cw" | "ccw",
-  connectorStyle: "straight" | "curved"
+  connectorStyle: "straight" | "curved",
+  startInset = 0,
+  endInset = 0
 ) {
   const linePoints = getLinePoints(v, h);
+  let { sx, sy, ex, ey } = linePoints;
 
   if (connectorStyle === "straight") {
-    return `M ${linePoints.sx} ${linePoints.sy} L ${linePoints.ex} ${linePoints.ey}`;
+    if (startInset > 0 || endInset > 0) {
+      ({ sx, sy, ex, ey } = shortenSegment(
+        sx,
+        sy,
+        ex,
+        ey,
+        startInset,
+        endInset
+      ));
+    }
+    return `M ${sx} ${sy} L ${ex} ${ey}`;
   }
 
   const halfH = Math.abs(h / 2);
@@ -415,5 +540,25 @@ function getLinePath(
       }
   }
 
-  return `M ${linePoints.sx} ${linePoints.sy} C ${c1x} ${c1y} ${c2x} ${c2y} ${linePoints.ex} ${linePoints.ey}`;
+  if (startInset > 0 || endInset > 0) {
+    ({ sx, sy, ex, ey } = shortenCurvedEndpoints(
+      linePoints.sx,
+      linePoints.sy,
+      linePoints.ex,
+      linePoints.ey,
+      c1x,
+      c1y,
+      c2x,
+      c2y,
+      startInset,
+      endInset
+    ));
+  } else {
+    sx = linePoints.sx;
+    sy = linePoints.sy;
+    ex = linePoints.ex;
+    ey = linePoints.ey;
+  }
+
+  return `M ${sx} ${sy} C ${c1x} ${c1y} ${c2x} ${c2y} ${ex} ${ey}`;
 }

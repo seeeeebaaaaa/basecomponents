@@ -10,11 +10,20 @@ type ShapeStyle = {
   cornerRadius?: number
 }
 
+type MarkerStyle = {
+  size?: number
+  fill?: string
+  stroke?: string
+  strokeWidth?: number
+}
+
 type ConnectorSpecs = {
   type?: 'straight' | 'curved'
   direction?: 'cw' | 'ccw'
   width?: number
+  /** @deprecated Use markerStyle.size instead */
   markerSize?: number
+  /** @deprecated Use markerStyle.fill instead */
   markerColor?: string
   stroke?: string
   strokeWidth?: number | string
