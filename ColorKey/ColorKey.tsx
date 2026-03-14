@@ -1,453 +1,773 @@
+import { useMFContext } from 'components/MFHelpers'
 import React, { ReactNode } from 'react'
 import styled from 'styled-components'
+import {
+  DEFAULT_BAR_HEIGHT,
+  DEFAULT_BAR_LABELS_STYLE,
+  DEFAULT_COLOR_KEY_TITLE_STYLE,
+  DEFAULT_GRADIENT_BAR_BORDER_RADIUS,
+  DEFAULT_GROUP_SPACING,
+  DEFAULT_GROUP_TITLE_STYLE,
+  DEFAULT_ITEM_ROW_SPACE,
+  DEFAULT_ITEM_SPACE,
+  DEFAULT_LABEL_STYLE,
+  DEFAULT_LINE_THICKNESS,
+  DEFAULT_SIZE
+} from './ColorKeyDefaults'
 
-export type LegendType =
-  | 'rect'
-  | 'circle'
-  | 'line'
-  | 'line-circle'
-  | 'hatched'
-  | 'dotted'
-  | 'custom'
+export type SwatchType = 'circle' | 'square' | 'line' | 'custom'
 
-export interface LegendItem {
-  id?: string
+export interface ColorKeyItem {
+  color?: string
+  label: ReactNode
+  type: SwatchType
+  customSwatch?: ReactNode
+  swatchSize?: number
+  lineThickness?: number
+  strokeWidth?: number
+  strokeColor?: string
+  labelStyle?: React.CSSProperties
+}
+
+export interface ColorKeyGradientItem {
   color: string
-  borderColor?: string
-  label: string | ReactNode
-  type: LegendType
-  thickness?: number
-  custom?: React.ReactNode
+  value: number
+  label?: ReactNode
+}
+
+/** Item for discrete color scale. Renders adjacent swatches with no gap. */
+export interface ColorKeyDiscreteScaleItem {
+  color: string
+  label?: ReactNode
 }
 
 export interface ColorKeyGroup {
-  items: LegendItem[]
-  compact?: boolean
-  swatchSize?: SymbolSize
-  swatchSpace?: number
+  items:
+    | ColorKeyItem[]
+    | ColorKeyGradientItem[]
+    | ColorKeyDiscreteScaleItem[]
+  title?: ReactNode
+  /** When true, renders as gradient bar. items must be ColorKeyGradientItem[] */
+  gradient?: boolean
+  /** When true, renders discrete color scale (adjacent swatches, no gap). items must be ColorKeyDiscreteScaleItem[] */
+  discreteScale?: boolean
+  /** Swatch group props. Number of item columns within this group. */
+  columns?: number
+  swatchSize?: number
+  strokeWidth?: number
+  strokeColor?: string
+  itemSpace?: number
+  /** Vertical gap between wrapped rows. Defaults to itemSpace when not set. */
+  itemRowSpace?: number
+  labelStyle?: React.CSSProperties
+  groupTitleStyle?: React.CSSProperties
+  /** Gradient / discrete scale group props */
+  maxWidth?: number
+  height?: number
+  barLabels?: [ReactNode, ReactNode]
+  barLabelsStyle?: React.CSSProperties
+  borderRadius?: number
 }
 
-export interface ColorKeyColumn {
-  title?: string
-  data: LegendItem[]
-  className?: string
-  style?: React.CSSProperties
-  align?: 'left' | 'right'
+function isGroup (x: ColorKeyItem | ColorKeyGroup): x is ColorKeyGroup {
+  return 'items' in x && Array.isArray(x.items)
 }
 
-export interface SymbolSize {
-  width: number
-  height: number
+function isGradientItem (x: unknown): x is ColorKeyGradientItem {
+  return typeof x === 'object' && x !== null && 'value' in x && 'color' in x
 }
 
-interface ColorKeyProps {
-  groups?: ColorKeyGroup[]
-  columns?: ColorKeyColumn[]
-  groupSpace?: number
-  ariaLabel?: string
-  style?: React.CSSProperties
+function isDiscreteScaleItem (x: unknown): x is ColorKeyDiscreteScaleItem {
+  return typeof x === 'object' && x !== null && 'color' in x && !('value' in x)
 }
 
-const DEFAULT_SIZE: SymbolSize = { width: 14, height: 14 }
-const DEFAULT_GROUP_SPACE = 15
-
-interface ContainerProps {
-  $gap?: number
+interface SwatchGroupProps {
+  gradient?: never
+  items: ColorKeyItem[] | ColorKeyGroup[]
+  title?: ReactNode
+  titleStyle?: React.CSSProperties
+  /** Number of groups per row. Default 1 (e.g. on mobile). */
+  columns?: number
+  /** Number of item columns within a group. Default 2 on mobile, else flex wrap. */
+  itemColumns?: number
+  swatchSize?: number
+  strokeWidth?: number
+  strokeColor?: string
+  groupSpacing?: number
+  /** Gap between groups when columns > 1. Defaults to groupSpacing. */
+  groupGap?: number
+  itemSpace?: number
+  /** Vertical gap between wrapped rows. Defaults to itemSpace when not set. */
+  itemRowSpace?: number
+  labelStyle?: React.CSSProperties
+  groupTitleStyle?: React.CSSProperties
+  /** Defaults for gradient groups */
+  maxWidth?: number
+  height?: number
+  barLabels?: [ReactNode, ReactNode]
+  barLabelsStyle?: React.CSSProperties
+  borderRadius?: number
 }
 
-const GroupsContainer = styled.div<ContainerProps>`
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  column-gap: ${props => props.$gap ?? DEFAULT_GROUP_SPACE}px;
-  row-gap: 6px;
-  line-height: 1em;
-  @media (max-width: 768px) {
-    row-gap: 3px;
-  }
-`
-
-const Group = styled.div<ContainerProps>`
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: ${props => props.$gap ?? 0}px;
-  row-gap: 4px;
-  @media (max-width: 768px) {
-    row-gap: 3px;
-  }
-`
-
-const TwoColumnContainer = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 30px;
-  width: 100%;
-  margin-top: 10px;
-`
-
-interface ColumnWrapperProps {
-  $align?: 'left' | 'right'
+interface GradientProps {
+  gradient: true
+  items: ColorKeyGradientItem[]
+  title?: ReactNode
+  titleStyle?: React.CSSProperties
+  labelStyle?: React.CSSProperties
+  barLabelsStyle?: React.CSSProperties
+  maxWidth?: number
+  height?: number
+  barLabels?: [ReactNode, ReactNode]
+  borderRadius?: number
 }
 
-const ColumnWrapper = styled.div<ColumnWrapperProps>`
+interface DiscreteScaleProps {
+  discreteScale: true
+  items: ColorKeyDiscreteScaleItem[]
+  title?: ReactNode
+  titleStyle?: React.CSSProperties
+  labelStyle?: React.CSSProperties
+  barLabelsStyle?: React.CSSProperties
+  maxWidth?: number
+  height?: number
+  barLabels?: [ReactNode, ReactNode]
+  borderRadius?: number
+}
+
+export type ColorKeyProps =
+  | SwatchGroupProps
+  | GradientProps
+  | DiscreteScaleProps
+  | (ColorKeyItem & { items?: never })
+
+/**
+ * Wraps content with optional color key title.
+ */
+function withColorKeyTitle (
+  content: ReactNode,
+  title?: ReactNode,
+  titleStyle?: React.CSSProperties
+) {
+  if (!title) return content
+  const mergedTitleStyle = mergeLabelStyle(
+    DEFAULT_COLOR_KEY_TITLE_STYLE,
+    titleStyle
+  )
+  return (
+    <ColorKeyWrapper>
+      <ColorKeyTitle style={mergedTitleStyle}>{title}</ColorKeyTitle>
+      {content}
+    </ColorKeyWrapper>
+  )
+}
+
+const ColorKeyWrapper = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  flex: 1;
-  min-width: 0;
-  align-items: ${props =>
-    props.$align === 'right' ? 'flex-end' : 'flex-start'};
 `
 
-const ColumnTitle = styled.div`
-  margin: 0;
-  font-size: 11px;
-  @media (max-width: 768px) {
-    font-size: 11px;
-  }
-`
+const ColorKeyTitle = styled.div``
 
-const ColumnItems = styled.ul`
+const Container = styled.div`
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 100%;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-`
-
-interface ItemContainerProps {
-  $align?: 'left' | 'right'
-  $isColumnLayout?: boolean
-}
-
-const ItemContainer = styled.li<ItemContainerProps>`
-  display: flex;
-  flex-direction: ${props =>
-    props.$align === 'right' ? 'row-reverse' : 'row'};
   align-items: center;
   gap: 5px;
-  padding: 0px 0;
-  justify-content: ${props =>
-    props.$align === 'right' ? 'flex-start' : 'flex-start'};
-  padding-right: ${props => (props.$isColumnLayout ? '0' : '20px')};
-  &:first-of-type {
-    padding-left: 0;
-  }
-  &:last-of-type {
-    padding-right: 0;
-  }
 `
 
-const Label = styled.span`
-  font-size: 13px;
-  line-height: 1.2em;
-  display: flex;
+const Label = styled.span``
 
-  @media (max-width: 768px) {
-    font-size: 11px;
-  }
+const SwatchBase = styled.span<{ $size: number }>`
+  display: block;
+  width: ${props => props.$size}px;
+  height: ${props => props.$size}px;
+  flex-shrink: 0;
 `
 
-interface SymbolBaseProps {
-  $width?: number
-  $height?: number
+interface StrokeProps {
+  $strokeWidth?: number
+  $strokeColor?: string
 }
 
-const SymbolBase = styled.span<SymbolBaseProps>`
-  display: block;
-  width: ${props => props.$width || DEFAULT_SIZE.width}px;
-  height: ${props => props.$height || DEFAULT_SIZE.height}px;
-`
-
-const Rectangle = styled(SymbolBase)<{ color: string; $borderColor?: string }>`
-  background-color: ${props => props.color};
-  border: 1px solid ${props => props.$borderColor || 'transparent'};
-`
-
-const Circle = styled(SymbolBase)<{ color: string }>`
-  background-color: ${props => props.color};
+const CircleSwatch = styled(SwatchBase)<{ $color: string } & StrokeProps>`
+  background-color: ${props => props.$color};
   border-radius: 50%;
+  border: ${props =>
+    props.$strokeWidth && props.$strokeWidth > 0
+      ? `${props.$strokeWidth}px solid ${props.$strokeColor ?? 'currentColor'}`
+      : 'none'};
 `
 
-const LineContainer = styled(SymbolBase)`
+const SquareSwatch = styled(SwatchBase)<{ $color: string } & StrokeProps>`
+  background-color: ${props => props.$color};
+  border: ${props =>
+    props.$strokeWidth && props.$strokeWidth > 0
+      ? `${props.$strokeWidth}px solid ${props.$strokeColor ?? 'currentColor'}`
+      : 'none'};
+`
+
+const LineContainer = styled(SwatchBase)`
   display: flex;
   align-items: center;
+  justify-content: center;
 `
 
-const Line = styled.span<{ color: string; $thickness: number }>`
+const LineSwatch = styled.span<
+  { $color: string; $thickness: number } & StrokeProps
+>`
   display: block;
   width: 100%;
   height: ${props => props.$thickness}px;
-  background-color: ${props => props.color};
+  background-color: ${props => props.$color};
   border-radius: ${props => props.$thickness}px;
   transform: rotate(-45deg);
+  border: ${props =>
+    props.$strokeWidth && props.$strokeWidth > 0
+      ? `${props.$strokeWidth}px solid ${props.$strokeColor ?? 'currentColor'}`
+      : 'none'};
 `
 
-const LineWithCircleContainer = styled(LineContainer)`
-  position: relative;
-`
-
-const CircleOverlay = styled.span<{ color: string }>`
-  display: block;
-  width: 8px;
-  height: 8px;
-  background-color: ${props => props.color};
-  border-radius: 50%;
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-`
-
-const HatchedBox = styled(SymbolBase)<{ color: string }>`
-  background-image: ${props => `repeating-linear-gradient(
-    45deg,
-    ${props.color},
-    ${props.color} 2px,
-    transparent 2px,
-    transparent 6px
-  )`};
-`
-
-const DottedBox = styled(SymbolBase)<{ color: string }>`
-  background-image: ${props => `radial-gradient(
-    circle,
-    ${props.color} 1.5px,
-    transparent 1.5px
-  )`};
-  background-size: 5px 5px;
-`
-
-const CompactItem = styled.li`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-`
-
-const CompactLabel = styled.span`
-  font-size: 11px;
-  text-align: center;
-  white-space: nowrap;
-
-  @media (max-width: 768px) {
-    font-size: 10px;
-  }
-`
-
-const VisuallyHidden = styled.span`
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-`
+interface SwatchDefaults {
+  defaultSwatchSize?: number
+  defaultStrokeWidth?: number
+  defaultStrokeColor?: string
+}
 
 /**
- * Renders the appropriate symbol based on type
+ * Renders the swatch based on type
  */
-const renderSymbol = (item: LegendItem, size?: SymbolSize): React.ReactNode => {
-  const { color, type, borderColor, thickness = 3 } = item
-  const width = size?.width
-  const height = size?.height
+function renderSwatch (
+  props: ColorKeyItem,
+  defaults?: SwatchDefaults
+): ReactNode {
+  const size = props.swatchSize ?? defaults?.defaultSwatchSize ?? DEFAULT_SIZE
+  const lineThickness = props.lineThickness ?? DEFAULT_LINE_THICKNESS
+  const strokeWidth = props.strokeWidth ?? defaults?.defaultStrokeWidth
+  const strokeColor = props.strokeColor ?? defaults?.defaultStrokeColor
 
-  switch (type) {
-    case 'rect':
-      return (
-        <Rectangle
-          color={color}
-          $borderColor={borderColor}
-          $width={width}
-          $height={height}
-          aria-hidden='true'
-        />
-      )
+  const strokeProps =
+    strokeWidth && strokeWidth > 0
+      ? { $strokeWidth: strokeWidth, $strokeColor: strokeColor }
+      : {}
 
+  switch (props.type) {
     case 'circle':
       return (
-        <Circle
-          color={color}
-          $width={width}
-          $height={height}
-          aria-hidden='true'
+        <CircleSwatch
+          $color={props.color ?? 'transparent'}
+          $size={size}
+          {...strokeProps}
         />
       )
-
+    case 'square':
+      return (
+        <SquareSwatch
+          $color={props.color ?? 'transparent'}
+          $size={size}
+          {...strokeProps}
+        />
+      )
     case 'line':
       return (
-        <LineContainer $width={width} $height={height} aria-hidden='true'>
-          <Line color={color} $thickness={thickness} />
+        <LineContainer $size={size}>
+          <LineSwatch
+            $color={props.color ?? 'transparent'}
+            $thickness={lineThickness}
+            {...strokeProps}
+          />
         </LineContainer>
       )
-
-    case 'line-circle':
-      return (
-        <LineWithCircleContainer
-          $width={width}
-          $height={height}
-          aria-hidden='true'
-        >
-          <Line color={color} $thickness={thickness} />
-          <CircleOverlay color={color} />
-        </LineWithCircleContainer>
-      )
-
-    case 'hatched':
-      return (
-        <HatchedBox
-          color={color}
-          $width={width}
-          $height={height}
-          aria-hidden='true'
-        />
-      )
-
-    case 'dotted':
-      return (
-        <DottedBox
-          color={color}
-          $width={width}
-          $height={height}
-          aria-hidden='true'
-        />
-      )
-
     case 'custom':
-      return <span aria-hidden='true'>{item.custom}</span>
-
+      return props.customSwatch ?? null
     default:
       return null
   }
 }
 
+interface ColorKeyItemComponentProps extends ColorKeyItem {
+  defaultSwatchSize?: number
+  defaultStrokeWidth?: number
+  defaultStrokeColor?: string
+  defaultLabelStyle?: React.CSSProperties
+}
+
 /**
- * Renders a single legend entry with symbol and label side by side
+ * Merges label styles with later sources overriding earlier. All values must be valid CSS.
  */
-const LegendEntry: React.FC<{
-  item: LegendItem
-  size?: SymbolSize
-  align?: 'left' | 'right'
-  isColumnLayout?: boolean
-}> = ({ item, size, align, isColumnLayout }) => {
+function mergeLabelStyle (
+  ...styles: (React.CSSProperties | undefined)[]
+): React.CSSProperties {
+  return Object.assign({}, ...styles.filter(Boolean))
+}
+
+/**
+ * Renders a single color key item: a color swatch (circle, square, 45° line, or custom) and a label.
+ */
+const ColorKeyItemComponent = (props: ColorKeyItemComponentProps) => {
+  const {
+    label,
+    defaultSwatchSize,
+    defaultStrokeWidth,
+    defaultStrokeColor,
+    defaultLabelStyle,
+    labelStyle: itemLabelStyle
+  } = props
+  const labelStyle = mergeLabelStyle(
+    DEFAULT_LABEL_STYLE,
+    defaultLabelStyle,
+    itemLabelStyle
+  )
   return (
-    <ItemContainer $align={align} $isColumnLayout={isColumnLayout||item.label==''}>
-      {renderSymbol(item, size)}
-      {item.label && item.label != '' && <Label>{item.label}</Label>}
-    </ItemContainer>
+    <Container>
+      <span aria-hidden='true'>
+        {renderSwatch(props, {
+          defaultSwatchSize,
+          defaultStrokeWidth,
+          defaultStrokeColor
+        })}
+      </span>
+      <Label style={labelStyle}>{label}</Label>
+    </Container>
   )
 }
 
+interface GradientDefaults {
+  maxWidth?: number
+  height?: number
+  barLabels?: [ReactNode, ReactNode]
+  barLabelsStyle?: React.CSSProperties
+  borderRadius?: number
+  labelStyle?: React.CSSProperties
+}
+
+interface RenderGroupDefaults {
+  columns?: number
+  swatchSize?: number
+  strokeWidth?: number
+  strokeColor?: string
+  itemSpace?: number
+  itemRowSpace?: number
+  labelStyle?: React.CSSProperties
+  groupTitleStyle?: React.CSSProperties
+  gradient?: GradientDefaults
+}
+
 /**
- * Renders a single legend entry with symbol above label (compact layout)
+ * Renders a single group of items with optional title. Renders gradient or swatches based on group.gradient.
  */
-const CompactLegendEntry: React.FC<{
-  item: LegendItem
-  size?: SymbolSize
-}> = ({ item, size }) => {
-  return (
-    <CompactItem>
-      {renderSymbol(item, size)}
-      <CompactLabel>{item.label}</CompactLabel>
-    </CompactItem>
+function renderGroup (
+  group: ColorKeyGroup,
+  defaults: RenderGroupDefaults,
+  key: number
+) {
+  const groupTitleStyle = mergeLabelStyle(
+    DEFAULT_GROUP_TITLE_STYLE,
+    defaults.groupTitleStyle,
+    group.groupTitleStyle
   )
-}
 
-/**
- * Generates a stable key for a legend item
- */
-const getItemKey = (item: LegendItem, index: number): string => {
-  return item.id ?? `${item.type}-${item.color}-${index}`
-}
-
-/**
- * ColorKey component for displaying map/chart legends
- * Supports grouped and multi-column layouts
- */
-const ColorKey: React.FC<ColorKeyProps> = ({
-  groups,
-  columns,
-  groupSpace,
-  ariaLabel = 'Legende',
-  style
-}) => {
-  // Grouped layout
-  if (groups && groups.length > 0) {
+  if (group.gradient && group.items?.length) {
+    const gradientContent = renderGradientKey(
+      group.items.filter(isGradientItem),
+      {
+        labelStyle: group.labelStyle ?? defaults.gradient?.labelStyle,
+        barLabelsStyle:
+          group.barLabelsStyle ?? defaults.gradient?.barLabelsStyle,
+        maxWidth: group.maxWidth ?? defaults.gradient?.maxWidth,
+        height: group.height ?? defaults.gradient?.height,
+        barLabels: group.barLabels ?? defaults.gradient?.barLabels,
+        borderRadius: group.borderRadius ?? defaults.gradient?.borderRadius
+      }
+    )
     return (
-      <GroupsContainer
-        $gap={groupSpace}
-        style={style}
-        role='list'
-        aria-label={ariaLabel}
-      >
-        <VisuallyHidden>{ariaLabel}:</VisuallyHidden>
-        {groups.map((group, groupIndex) => (
-          <Group key={groupIndex} $gap={group.swatchSpace} role='group'>
-            {group.items.map((item, itemIndex) =>
-              group.compact ? (
-                <CompactLegendEntry
-                  key={getItemKey(item, itemIndex)}
-                  item={item}
-                  size={group.swatchSize}
-                />
-              ) : (
-                <LegendEntry
-                  key={getItemKey(item, itemIndex)}
-                  item={item}
-                  size={group.swatchSize}
-                />
-              )
-            )}
-          </Group>
-        ))}
-      </GroupsContainer>
+      <GroupWrapper key={key}>
+        {group.title && (
+          <GroupTitle style={groupTitleStyle}>{group.title}</GroupTitle>
+        )}
+        {gradientContent}
+      </GroupWrapper>
     )
   }
 
-  // Multi-column layout
-  if (columns && columns.length > 0) {
+  if (group.discreteScale && group.items?.length) {
+    const discreteItems = group.items.filter(isDiscreteScaleItem)
+    const discreteContent = renderDiscreteScaleKey(discreteItems, {
+      labelStyle: group.labelStyle ?? defaults.gradient?.labelStyle,
+      barLabelsStyle: group.barLabelsStyle ?? defaults.gradient?.barLabelsStyle,
+      maxWidth: group.maxWidth ?? defaults.gradient?.maxWidth,
+      height: group.height ?? defaults.gradient?.height,
+      barLabels: group.barLabels ?? defaults.gradient?.barLabels,
+      borderRadius: group.borderRadius ?? defaults.gradient?.borderRadius
+    })
     return (
-      <TwoColumnContainer role='region' aria-label={ariaLabel}>
-        {columns.map((column, colIndex) => (
-          <ColumnWrapper
-            key={colIndex}
-            className={column.className}
-            style={column.style}
-            $align={column.align}
-          >
-            {column.title && (
-              <ColumnTitle id={`col-title-${colIndex}`}>
-                {column.title}
-              </ColumnTitle>
-            )}
-            <ColumnItems
-              role='list'
-              aria-labelledby={
-                column.title ? `col-title-${colIndex}` : undefined
-              }
-            >
-              {column.data.map((item, itemIndex) => (
-                <LegendEntry
-                  key={getItemKey(item, itemIndex)}
-                  item={item}
-                  align={column.align}
-                  isColumnLayout={true}
-                />
-              ))}
-            </ColumnItems>
-          </ColumnWrapper>
+      <GroupWrapper key={key}>
+        {group.title && (
+          <GroupTitle style={groupTitleStyle}>{group.title}</GroupTitle>
+        )}
+        {discreteContent}
+      </GroupWrapper>
+    )
+  }
+
+  const columns = group.columns ?? defaults.columns
+  const swatchSize = group.swatchSize ?? defaults.swatchSize
+  const strokeWidth = group.strokeWidth ?? defaults.strokeWidth
+  const strokeColor = group.strokeColor ?? defaults.strokeColor
+  const itemSpace = group.itemSpace ?? defaults.itemSpace ?? DEFAULT_ITEM_SPACE
+  const itemRowSpace =
+    group.itemRowSpace ?? defaults.itemRowSpace ?? DEFAULT_ITEM_ROW_SPACE
+  const labelStyle = mergeLabelStyle(defaults.labelStyle, group.labelStyle)
+
+  return (
+    <GroupWrapper key={key}>
+      {group.title && (
+        <GroupTitle style={groupTitleStyle}>{group.title}</GroupTitle>
+      )}
+      <ItemsContainer
+        $columns={columns}
+        $itemSpace={itemSpace}
+        $itemRowSpace={itemRowSpace}
+      >
+        {(group.items as ColorKeyItem[]).map((item, i) => (
+          <ColorKeyItemComponent
+            key={i}
+            {...item}
+            defaultSwatchSize={swatchSize}
+            defaultStrokeWidth={strokeWidth}
+            defaultStrokeColor={strokeColor}
+            defaultLabelStyle={labelStyle}
+          />
         ))}
-      </TwoColumnContainer>
+      </ItemsContainer>
+    </GroupWrapper>
+  )
+}
+
+/**
+ * Normalizes gradient values to 0-100 range for CSS stops.
+ */
+function normalizeGradientStops (
+  items: ColorKeyGradientItem[]
+): Array<{ color: string; percent: number; label: ReactNode }> {
+  const sorted = [...items].sort((a, b) => a.value - b.value)
+  const min = sorted[0]?.value ?? 0
+  const max = sorted[sorted.length - 1]?.value ?? 100
+  const range = max - min || 1
+  return sorted.map(item => ({
+    color: item.color,
+    percent: ((item.value - min) / range) * 100,
+    label: item.label
+  }))
+}
+
+/**
+ * Renders a gradient color key bar with labels.
+ */
+function renderGradientKey (
+  items: ColorKeyGradientItem[],
+  options?: {
+    labelStyle?: React.CSSProperties
+    barLabelsStyle?: React.CSSProperties
+    maxWidth?: number
+    height?: number
+    barLabels?: [ReactNode, ReactNode]
+    borderRadius?: number
+  }
+) {
+  const stops = normalizeGradientStops(items)
+  const gradientCss = stops.map(s => `${s.color} ${s.percent}%`).join(', ')
+  const mergedLabelStyle = mergeLabelStyle(
+    DEFAULT_LABEL_STYLE,
+    options?.labelStyle
+  )
+  const mergedBarLabelsStyle = mergeLabelStyle(
+    DEFAULT_BAR_LABELS_STYLE,
+    options?.barLabelsStyle
+  )
+  const barLabels = options?.barLabels
+  return (
+    <GradientContainer $maxWidth={options?.maxWidth}>
+      {barLabels && (
+        <GradientBarLabels>
+          <Label style={mergedBarLabelsStyle}>{barLabels[0]}</Label>
+          <Label style={mergedBarLabelsStyle}>{barLabels[1]}</Label>
+        </GradientBarLabels>
+      )}
+      <GradientBar
+        $gradient={gradientCss}
+        $height={options?.height}
+        $borderRadius={options?.borderRadius}
+      />
+      <GradientLabels $columns={stops.length}>
+        {stops.map((stop, i) => (
+          <GradientLabelCell
+            key={i}
+            $align={
+              i === 0 ? 'start' : i === stops.length - 1 ? 'end' : 'center'
+            }
+          >
+            <Label style={mergedLabelStyle}>{stop.label}</Label>
+          </GradientLabelCell>
+        ))}
+      </GradientLabels>
+    </GradientContainer>
+  )
+}
+
+/**
+ * Renders a discrete color scale: adjacent swatches with no gap, min/max labels.
+ */
+function renderDiscreteScaleKey (
+  items: ColorKeyDiscreteScaleItem[],
+  options?: {
+    labelStyle?: React.CSSProperties
+    barLabelsStyle?: React.CSSProperties
+    maxWidth?: number
+    height?: number
+    barLabels?: [ReactNode, ReactNode]
+    borderRadius?: number
+  }
+) {
+  const mergedLabelStyle = mergeLabelStyle(
+    DEFAULT_LABEL_STYLE,
+    options?.labelStyle
+  )
+  const mergedBarLabelsStyle = mergeLabelStyle(
+    DEFAULT_BAR_LABELS_STYLE,
+    options?.barLabelsStyle
+  )
+  const barLabels = options?.barLabels
+  const hasLabels = items.some(item => item.label)
+  return (
+    <GradientContainer $maxWidth={options?.maxWidth}>
+      {barLabels && (
+        <GradientBarLabels>
+          <Label style={mergedBarLabelsStyle}>{barLabels[0]}</Label>
+          <Label style={mergedBarLabelsStyle}>{barLabels[1]}</Label>
+        </GradientBarLabels>
+      )}
+      <DiscreteScaleBar
+        $height={options?.height}
+        $borderRadius={options?.borderRadius}
+      >
+        {items.map((item, i) => (
+          <DiscreteScaleSegment key={i} $color={item.color} />
+        ))}
+      </DiscreteScaleBar>
+      {hasLabels && (
+        <GradientLabels $columns={items.length}>
+          {items.map((item, i) => (
+            <GradientLabelCell key={i} $align='center'>
+              <Label style={mergedLabelStyle}>{item.label}</Label>
+            </GradientLabelCell>
+          ))}
+        </GradientLabels>
+      )}
+    </GradientContainer>
+  )
+}
+
+/**
+ * Renders color key item(s). Accepts single item, items array (flat or groups), or gradient mode.
+ * Detects groups by checking if first element has an items array.
+ */
+const ColorKey = (props: ColorKeyProps) => {
+  const { isMobile } = useMFContext()
+
+  if ('gradient' in props && props.gradient && props.items?.length) {
+    const content = renderGradientKey(props.items, {
+      labelStyle: props.labelStyle,
+      barLabelsStyle: props.barLabelsStyle,
+      maxWidth: props.maxWidth,
+      height: props.height,
+      barLabels: props.barLabels,
+      borderRadius: props.borderRadius
+    })
+    return withColorKeyTitle(content, props.title, props.titleStyle)
+  }
+
+  if ('discreteScale' in props && props.discreteScale && props.items?.length) {
+    const discreteProps = props as DiscreteScaleProps
+    const content = renderDiscreteScaleKey(discreteProps.items, {
+      labelStyle: discreteProps.labelStyle,
+      barLabelsStyle: discreteProps.barLabelsStyle,
+      maxWidth: discreteProps.maxWidth,
+      height: discreteProps.height,
+      barLabels: discreteProps.barLabels,
+      borderRadius: discreteProps.borderRadius
+    })
+    return withColorKeyTitle(
+      content,
+      discreteProps.title,
+      discreteProps.titleStyle
+    )
+  }
+
+  if ('items' in props && props.items?.length) {
+    const p = props as SwatchGroupProps
+    const groupColumns = p.columns ?? 1
+    const defaultItemColumns = p.itemColumns ?? (isMobile ? 2 : undefined)
+    const groupDefaults: RenderGroupDefaults = {
+      columns: defaultItemColumns,
+      swatchSize: p.swatchSize,
+      strokeWidth: p.strokeWidth,
+      strokeColor: p.strokeColor,
+      itemSpace: p.itemSpace,
+      itemRowSpace: p.itemRowSpace,
+      labelStyle: p.labelStyle,
+      groupTitleStyle: p.groupTitleStyle,
+      gradient: {
+        maxWidth: p.maxWidth,
+        height: p.height,
+        barLabels: p.barLabels,
+        barLabelsStyle: p.barLabelsStyle,
+        borderRadius: p.borderRadius,
+        labelStyle: p.labelStyle
+      }
+    }
+
+    if (isGroup(p.items[0])) {
+      const groups = p.items as ColorKeyGroup[]
+      const content = (
+        <GroupsContainer
+          $columns={groupColumns}
+          $groupGap={p.groupGap ?? p.groupSpacing ?? DEFAULT_GROUP_SPACING}
+        >
+          {groups.map((group, i) => renderGroup(group, groupDefaults, i))}
+        </GroupsContainer>
+      )
+      return withColorKeyTitle(content, p.title, p.titleStyle)
+    }
+
+    const items = p.items as ColorKeyItem[]
+    const itemSpace = p.itemSpace ?? DEFAULT_ITEM_SPACE
+    const itemRowSpace = p.itemRowSpace ?? DEFAULT_ITEM_ROW_SPACE
+    const content = (
+      <ItemsContainer
+        $columns={defaultItemColumns}
+        $itemSpace={itemSpace}
+        $itemRowSpace={itemRowSpace}
+      >
+        {items.map((item, i) => (
+          <ColorKeyItemComponent
+            key={i}
+            {...item}
+            defaultSwatchSize={p.swatchSize}
+            defaultStrokeWidth={p.strokeWidth}
+            defaultStrokeColor={p.strokeColor}
+            defaultLabelStyle={p.labelStyle}
+          />
+        ))}
+      </ItemsContainer>
+    )
+    return withColorKeyTitle(content, p.title, p.titleStyle)
+  }
+
+  if (!('items' in props)) {
+    return (
+      <ColorKeyItemComponent
+        {...props}
+        defaultSwatchSize={undefined}
+        defaultStrokeWidth={undefined}
+        defaultStrokeColor={undefined}
+        defaultLabelStyle={undefined}
+      />
     )
   }
 
   return null
 }
+
+interface GroupsContainerProps {
+  $columns?: number
+  $groupGap?: number
+}
+
+const GroupsContainer = styled.div<GroupsContainerProps>`
+  display: ${props =>
+    props.$columns !== undefined && props.$columns > 1 ? 'grid' : 'flex'};
+  flex-direction: column;
+  grid-template-columns: ${props =>
+    props.$columns !== undefined && props.$columns > 1
+      ? `repeat(${props.$columns}, 1fr)`
+      : 'unset'};
+  gap: ${props => props.$groupGap ?? DEFAULT_GROUP_SPACING}px;
+`
+
+const GroupWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
+`
+
+const GroupTitle = styled.span``
+
+interface ItemsContainerProps {
+  $columns?: number
+  $itemSpace?: number
+  $itemRowSpace?: number
+}
+
+const ItemsContainer = styled.div<ItemsContainerProps>`
+  display: ${props => (props.$columns !== undefined ? 'grid' : 'flex')};
+  flex-wrap: ${props => (props.$columns === undefined ? 'wrap' : 'unset')};
+  grid-template-columns: ${props =>
+    props.$columns !== undefined ? `repeat(${props.$columns}, 1fr)` : 'unset'};
+  column-gap: ${props => props.$itemSpace ?? DEFAULT_ITEM_SPACE}px;
+  row-gap: ${props => props.$itemRowSpace ?? DEFAULT_ITEM_ROW_SPACE}px;
+  align-items: center;
+`
+
+const GradientContainer = styled.div<{ $maxWidth?: number }>`
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
+  max-width: ${props => (props.$maxWidth ? `${props.$maxWidth}px` : 'none')};
+`
+
+const GradientBarLabels = styled.div`
+  display: flex;
+  justify-content: space-between;
+  line-height: 1em;
+`
+
+const GradientBar = styled.div<{
+  $gradient: string
+  $height?: number
+  $borderRadius?: number
+}>`
+  height: ${props => props.$height ?? DEFAULT_BAR_HEIGHT}px;
+  border-radius: ${props =>
+    props.$borderRadius ?? DEFAULT_GRADIENT_BAR_BORDER_RADIUS}px;
+  background: linear-gradient(to right, ${props => props.$gradient});
+`
+
+const DiscreteScaleBar = styled.div<{
+  $height?: number
+  $borderRadius?: number
+}>`
+  display: flex;
+  height: ${props => props.$height ?? DEFAULT_BAR_HEIGHT}px;
+  border-radius: ${props =>
+    props.$borderRadius ?? DEFAULT_GRADIENT_BAR_BORDER_RADIUS}px;
+  overflow: hidden;
+`
+
+const DiscreteScaleSegment = styled.div<{ $color: string }>`
+  flex: 1;
+  background-color: ${props => props.$color};
+`
+
+const GradientLabels = styled.div<{ $columns: number }>`
+  display: grid;
+  grid-template-columns: ${props => `repeat(${props.$columns}, 1fr)`};
+  column-gap: 4px;
+`
+
+const GradientLabelCell = styled.div<{ $align: 'start' | 'center' | 'end' }>`
+  text-align: ${props => props.$align};
+  align-self: start;
+  line-height: 1em;
+`
 
 export default ColorKey
