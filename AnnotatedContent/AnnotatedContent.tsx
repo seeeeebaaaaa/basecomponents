@@ -12,6 +12,7 @@ import {
 
 import styled from 'styled-components'
 import { useResizeObserver } from 'usehooks-ts'
+import { useAnnotationDevTools } from './DevTools'
 
 
 
@@ -46,6 +47,11 @@ export type Annotation = CustomAnnotation | StandardAnnotation
 
 
 
+export interface DevOptions {
+  grid?: number | [number, number]
+  gridColor?: string
+}
+
 export interface AnnotatedContentProps {
   children: ReactNode
   annotations: Array<Annotation>
@@ -53,11 +59,16 @@ export interface AnnotatedContentProps {
   shapeStyle?: ShapeStyle
   connectorStyle?: ConnectorSpecs
   markerStyle?: MarkerStyle
+  arrowStyle?: {
+    stroke?: string
+    strokeWidth?: number
+    strokeOpacity?: number
+    fill?: string
+  }
   customMarkers?: Record<string, React.ReactNode>
   style?: React.CSSProperties
+  devOptions?: DevOptions
 }
-
-const isDev = window.location.hostname === 'localhost'
 
 /** Derives a stable key from img srcs in the content so we re-run load logic when images change. */
 function getContentKey(container: HTMLElement | null): string {
@@ -75,9 +86,11 @@ export const AnnotatedContent = ({
   className = '',
   connectorStyle,
   markerStyle,
+  arrowStyle,
   shapeStyle = {},
   customMarkers,
   style,
+  devOptions,
 }: AnnotatedContentProps) => {
   const ref = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -88,6 +101,8 @@ export const AnnotatedContent = ({
     ref: ref as React.RefObject<HTMLElement>,
     box: 'border-box',
   })
+
+  const devTools = useAnnotationDevTools(ref, annotations, width, height, devOptions)
 
   useLayoutEffect(() => {
     const key = getContentKey(contentRef.current)
@@ -173,6 +188,7 @@ export const AnnotatedContent = ({
       const elementProps = annotation.content.props as {
         connectorStyle?: Record<string, any>;
         markerStyle?: Record<string, any>;
+        arrowStyle?: Record<string, any>;
         shapeStyle?: Record<string, any>;
         customMarkers?: Record<string, React.ReactNode>;
         [key: string]: any;
@@ -188,6 +204,10 @@ export const AnnotatedContent = ({
             markerStyle: {
               ...markerStyle,
               ...elementProps.markerStyle,
+            },
+            arrowStyle: {
+              ...arrowStyle,
+              ...elementProps.arrowStyle,
             },
             shapeStyle: {
               ...shapeStyle,
@@ -209,29 +229,26 @@ export const AnnotatedContent = ({
       </div>
     )
     },
-    [connectorStyle, markerStyle, shapeStyle, customMarkers, width, height]
+    [connectorStyle, markerStyle, arrowStyle, shapeStyle, customMarkers, width, height]
   )
-
-  const handleContainerClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isDev) return
-    if (!e.shiftKey) {
-      const rect = e.currentTarget.getBoundingClientRect()
-      const x = ((e.clientX - rect.left) / rect.width) * 100
-      const y = ((e.clientY - rect.top) / rect.height) * 100
-      console.log(`{ x: ${x.toFixed(2)}, y: ${y.toFixed(2)} },`)
-    }
-  }, [])
 
   return (
     <AnnotatedContentContainer
       ref={ref}
       style={style}
       className={`annotated-content ${className}`.trim()}
-      onClick={isDev ? handleContainerClick : undefined}
+      onClick={devTools.handleClick}
       aria-busy={!contentLoaded}
     >
+      {devTools.overlay}
       <div ref={contentRef} style={{ display: 'contents' }}>{children}</div>
-      {showAnnotations && annotations.filter(validateAnnotation).map(renderAnnotation)}
+      {showAnnotations &&
+        annotations.filter(validateAnnotation).map((annotation, index) => {
+          const element = renderAnnotation(annotation, index)
+          return devTools.wrapAnnotation
+            ? devTools.wrapAnnotation(element, index, annotation.pos)
+            : element
+        })}
     </AnnotatedContentContainer>
   )
 }

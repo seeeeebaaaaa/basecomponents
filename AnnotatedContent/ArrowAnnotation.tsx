@@ -1,6 +1,6 @@
-import React, { ReactNode, useEffect, useState } from "react";
+import React, { ReactNode } from "react";
 import styled from "styled-components";
-import { useIntersectionObserver } from "usehooks-ts";
+import { ContentContainer, getOffset, useAnimateOnIntersect } from "./shared";
 
 const defaultArrowStyle = {
   stroke: "var(--anno-connector-stroke)",
@@ -11,11 +11,6 @@ const defaultArrowStyle = {
   fill: "var(--anno-connector-stroke)",
 };
 
-function getOffset(offset: number | [number, number]) {
-  if (Array.isArray(offset)) return offset;
-  return [offset, offset];
-}
-
 /** Renders a configurable arrow with rotation and an unrotated label. Use for north arrows, flow direction, etc. */
 export const ArrowAnnotation = ({
   children,
@@ -24,9 +19,7 @@ export const ArrowAnnotation = ({
   arrowSize,
   arrowStyle = {},
   offset = 0,
-  labelOffset,
   textAnchor = "center",
-  padding = 0,
   animate = false,
   animationDelay = 200,
   threshold = 0.1,
@@ -46,32 +39,14 @@ export const ArrowAnnotation = ({
   };
   /** Label offset from arrow center [horizontal, vertical] in pixels. */
   offset?: number | [number, number];
-  /** Label offset from arrow center. Takes precedence over offset when provided. */
-  labelOffset?: number | [number, number];
   textAnchor?: "left" | "center" | "right";
-  padding?: number;
   animate?: boolean;
   animationDelay?: number;
   threshold?: number;
 }) => {
-  const [isVisible, setIsVisible] = useState(!animate);
-  const [hasAnimated, setHasAnimated] = useState(!animate);
-  const [shouldAnimate, setShouldAnimate] = useState(false);
-  const { isIntersecting, ref } = useIntersectionObserver({
-    threshold,
-    rootMargin: "50px",
-    freezeOnceVisible: true,
-  });
+  const { isVisible, shouldAnimate, ref } = useAnimateOnIntersect(animate, animationDelay, threshold);
 
-  useEffect(() => {
-    if (isIntersecting && !hasAnimated) {
-      setHasAnimated(true);
-      setShouldAnimate(true);
-      setTimeout(() => setIsVisible(true), animationDelay);
-    }
-  }, [isIntersecting, animationDelay, hasAnimated]);
-
-  const [h, v] = getOffset(labelOffset ?? offset);
+  const [h, v] = getOffset(offset);
   const style = { ...defaultArrowStyle, ...arrowStyle };
 
   const headSize = arrowSize ?? Math.min(length * 0.35, 12);
@@ -107,6 +82,7 @@ export const ArrowAnnotation = ({
               fill: "none",
               vectorEffect: "non-scaling-stroke",
             }}
+            $animate={animate}
             $isVisible={isVisible}
           />
           <ArrowPath
@@ -119,6 +95,7 @@ export const ArrowAnnotation = ({
               fill: style.fill,
               vectorEffect: "non-scaling-stroke",
             }}
+            $animate={animate}
             $isVisible={isVisible}
           />
         </g>
@@ -129,7 +106,6 @@ export const ArrowAnnotation = ({
           left: center + h,
           top: center + v,
           transform: `translate(${shiftLabelHorizontal}%, -50%)`,
-          padding: padding ? `${padding}px` : undefined,
         }}
         $isVisible={isVisible}
         $shouldAnimate={shouldAnimate}
@@ -147,36 +123,6 @@ const CenterAnchor = styled.div`
   line-height: 1em;
 `;
 
-const ContentContainer = styled.div<{
-  $isVisible: boolean;
-  $shouldAnimate: boolean;
-}>`
-  position: absolute;
-  line-height: 1em;
-  opacity: ${(p) => (p.$isVisible ? 1 : 0)};
-  scale: ${(p) => (p.$isVisible ? 1 : 0)};
-  transform-origin: left center;
-  transition: opacity 0.3s ease-in-out;
-  * {
-    line-height: unset;
-  }
-  animation: ${(p) =>
-    p.$isVisible && p.$shouldAnimate
-      ? "scaleUp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards"
-      : "none"};
-  @keyframes scaleUp {
-    0% {
-      scale: 0;
-    }
-    70% {
-      scale: 1.2;
-    }
-    100% {
-      scale: 1;
-    }
-  }
-`;
-
 const ArrowSvg = styled.svg<{ $isVisible: boolean }>`
   position: absolute;
   overflow: visible;
@@ -184,8 +130,9 @@ const ArrowSvg = styled.svg<{ $isVisible: boolean }>`
   transition: opacity 0.3s ease-in-out;
 `;
 
-const ArrowPath = styled.path<{ $isVisible: boolean }>`
-  stroke-dasharray: 1000;
-  stroke-dashoffset: ${(p) => (p.$isVisible ? 0 : 1000)};
-  transition: stroke-dashoffset 0.6s ease-in-out;
+const ArrowPath = styled.path<{ $animate: boolean; $isVisible: boolean }>`
+  ${(p) =>
+    p.$animate
+      ? `stroke-dasharray: 1000; stroke-dashoffset: ${p.$isVisible ? 0 : 1000}; transition: stroke-dashoffset 0.6s ease-in-out;`
+      : ""}
 `;

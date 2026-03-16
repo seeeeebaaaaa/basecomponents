@@ -18,13 +18,9 @@ type MarkerStyle = {
 }
 
 type ConnectorSpecs = {
-  type?: 'straight' | 'curved'
+  type?: 'straight' | 'curved' | 'corner'
   direction?: 'cw' | 'ccw'
-  width?: number
-  /** @deprecated Use markerStyle.size instead */
-  markerSize?: number
-  /** @deprecated Use markerStyle.fill instead */
-  markerColor?: string
+  cornerRadius?: number // 0 (sharp corner) to 100 (full curve), only applies to 'curved' type
   stroke?: string
   strokeWidth?: number | string
   strokeOpacity?: number // 0 to 1

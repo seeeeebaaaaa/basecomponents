@@ -1,6 +1,6 @@
-import React, { ReactNode, useEffect, useId, useState } from 'react'
+import React, { ReactNode, useId } from 'react'
 import styled from 'styled-components'
-import { useIntersectionObserver } from 'usehooks-ts'
+import { ContentContainer, getOffset, useAnimateOnIntersect } from './shared'
 
 const defaultShapeStyle: Required<ShapeStyle> = {
   pattern: 'none',
@@ -14,19 +14,6 @@ const defaultShapeStyle: Required<ShapeStyle> = {
   cornerRadius: 10,
 }
 
-type TextStyle = {
-  fontSize?: number
-  fontWeight?: number
-  fontFamily?: string
-  color?: string
-}
-
-const defaultTextStyle: Required<TextStyle> = {
-  fontSize: 15,
-  fontWeight: 300,
-  fontFamily: "var(--font-sansserif)",
-  color: "var(--text-color)",
-};
 
 interface BaseAreaAnnotationProps {
   shapeType?: 'rect' | 'circle' | 'custom'
@@ -36,7 +23,6 @@ interface BaseAreaAnnotationProps {
   offset?: number | [number, number]
   fullSize?: [number, number]
   shapeStyle?: ShapeStyle
-  textStyle?: TextStyle
   size?: number | [number, number]
   rotation?: number
   customShape?: { x: number; y: number }[]
@@ -55,7 +41,6 @@ export const AreaAnnotation = ({
   fullSize = [100, 100],
   textAnchor = 'center',
   offset = 0,
-  textStyle = {},
   shapeStyle = {},
   padding = 0,
   animate = false,
@@ -64,31 +49,11 @@ export const AreaAnnotation = ({
 }: BaseAreaAnnotationProps) => {
   const id = useId()
   const [h, v] = getOffset(offset)
-  const [isVisible, setIsVisible] = useState(!animate)
-  const [hasAnimated, setHasAnimated] = useState(!animate)
-  const [shouldAnimate, setShouldAnimate] = useState(false)
-  const { isIntersecting, ref } = useIntersectionObserver({
-    threshold,
-    rootMargin: '50px',
-    freezeOnceVisible: true,
-  })
-
-  useEffect(() => {
-    if (isIntersecting && !hasAnimated) {
-      setHasAnimated(true)
-      setShouldAnimate(true)
-      setTimeout(() => setIsVisible(true), animationDelay)
-    }
-  }, [isIntersecting, animationDelay, hasAnimated])
+  const { isVisible, shouldAnimate, ref } = useAnimateOnIntersect(animate, animationDelay, threshold)
 
   const currentShapeStyle = {
     ...defaultShapeStyle,
     ...shapeStyle,
-  }
-
-  const currentTextStyle = {
-    ...defaultTextStyle,
-    ...textStyle,
   }
 
   const { pattern, patternWidth, patternSpace, patternRotation, fill } =
@@ -106,7 +71,7 @@ export const AreaAnnotation = ({
   const [sx, sy] =
     resolvedShapeType === 'custom'
       ? [0, 0]
-      : getSize(size ?? 20, fullSize[0], fullSize[1])
+      : getSize(size, fullSize[0], fullSize[1])
 
   const getPatternFill = () => {
     switch (pattern) {
@@ -213,7 +178,6 @@ export const AreaAnnotation = ({
       </AreaSvg>
       <ContentContainer
         style={{
-          ...currentTextStyle,
           minWidth: 'max-content',
           left: h,
           top: v,
@@ -223,6 +187,7 @@ export const AreaAnnotation = ({
         }}
         $isVisible={isVisible}
         $shouldAnimate={shouldAnimate}
+        $transformOrigin="center center"
       >
         {children}
       </ContentContainer>
@@ -234,30 +199,6 @@ const AnnotationContainer = styled.div`
   display: inline-block;
   line-height: 1em;
   position: absolute;
-`
-
-const ContentContainer = styled.div<{
-  $isVisible: boolean
-  $shouldAnimate: boolean
-}>`
-  position: absolute;
-  line-height: 1em;
-  opacity: ${(p) => (p.$isVisible ? 1 : 0)};
-  scale: ${(p) => (p.$isVisible ? 1 : 0)};
-  transform-origin: center center;
-  transition: opacity 0.3s ease-in-out;
-  * {
-    line-height: unset;
-  }
-  animation: ${(p) =>
-    p.$isVisible && p.$shouldAnimate
-      ? 'areaScaleUp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards'
-      : 'none'};
-  @keyframes areaScaleUp {
-    0% { scale: 0; }
-    70% { scale: 1.2; }
-    100% { scale: 1; }
-  }
 `
 
 const AreaSvg = styled.svg<{ $isVisible: boolean }>`
@@ -299,11 +240,6 @@ function customShapeToPath(
       .join(' '),
     'Z',
   ].join(' ')
-}
-
-function getOffset(offset: number | [number, number]) {
-  if (Array.isArray(offset)) return offset
-  return [offset, offset]
 }
 
 function getSize(
