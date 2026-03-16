@@ -1,0 +1,23 @@
+{
+  "version": "1.1.0",
+  "description": "Header injection strategy for Tamedia articles - September 2025",
+  "strategy": {
+    "name": "h2_parent_method",
+    "steps": [
+      {
+        "action": "find",
+        "selector": { "type": "tag", "value": "h2", "index": 0 },
+        "required": true
+      },
+      {
+        "action": "findParent",
+        "selector": { "type": "tag", "value": "div" },
+        "required": true
+      }
+    ],
+    "injection": {
+      "position": "before",
+      "elementToCenter": "h2"
+    }
+  }
+}
