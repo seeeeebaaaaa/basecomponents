@@ -52,6 +52,8 @@ type MapContextType = {
   disabledFeatures?: DisabledFeature[]
   cooperativeGestures?: boolean
   setCooperativeGestures?: (enabled: boolean) => void
+  setTerrain?: (terrain: boolean) => void | undefined
+  setPerspectiveControl?: (perspectiveControl: CustomControl) => void | undefined
 }
 
 

@@ -27,6 +27,37 @@ const MapboxDefaults = {
   pointerColor: 'var(--site-background)'
 }
 
+const SWITZERLAND_VIEW = {
+  bounds: [[5.956, 45.818], [10.492, 47.808]] as [[number, number], [number, number]],
+  center: { lng: 8.2275, lat: 46.8182 } as { lng: number; lat: number },
+  zoom: 7,
+}
+
+/** Returns true when a value is a finite number. */
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value)
+
+/** Returns true when map bounds contain finite coordinates. */
+const hasValidBounds = (value: unknown): value is [[number, number], [number, number]] =>
+  Array.isArray(value) &&
+  value.length === 2 &&
+  value.every(
+    corner =>
+      Array.isArray(corner) &&
+      corner.length === 2 &&
+      isFiniteNumber(corner[0]) &&
+      isFiniteNumber(corner[1])
+  )
+
+/** Returns true when center contains finite lng/lat values. */
+const hasValidCenter = (
+  value: unknown
+): value is { lng: number; lat: number } =>
+  typeof value === 'object' &&
+  value !== null &&
+  isFiniteNumber((value as { lng?: unknown }).lng) &&
+  isFiniteNumber((value as { lat?: unknown }).lat)
+
 /** Updates a default value in the MapboxDefaults config. */
 function changeDefault (prop: keyof DefaultsType, value: any) {
   MapboxDefaults[prop] = value
@@ -197,55 +228,101 @@ export const MapboxMap = ({
 
   // Initialize the map once
   useEffect(() => {
-    if (map.current) return
-    if (!mapContainer.current) return
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
-      bounds: initialView?.bounds,
-      center: initialView?.center,
-      zoom: initialView?.zoom,
-      bearing: initialView?.bearing,
-      pitch: initialView?.pitch,
-      locale:
-        lang === 'de'
-          ? {
-              'ScrollZoomBlocker.CtrlMessage':
-                'Strg + Scrollen zum Zoomen der Karte',
-              'ScrollZoomBlocker.CmdMessage':
-                '\u2318 + Scrollen zum Zoomen der Karte',
-              'TouchPanBlocker.Message': 'Karte mit zwei Fingern bewegen'
-            }
-          : lang === 'fr'
-          ? {
-              'ScrollZoomBlocker.CtrlMessage':
-                'Ctrl + défilement pour zoomer la carte',
-              'ScrollZoomBlocker.CmdMessage':
-                '\u2318 + défilement pour zoomer la carte',
-              'TouchPanBlocker.Message':
-                'Utilisez deux doigts pour déplacer la carte'
-            }
-          : undefined
-    })
-    map.current.scrollZoom.disable()
-    map.current.dragPan.disable()
-    if (import.meta.env.DEV) {
-      map.current.on('moveend', () => {
-        if (!map.current) return
-        console.log('bounds', map.current.getBounds()?.toArray().join(', '))
-        console.log('center', map.current.getCenter())
-        console.log('zoom', map.current.getZoom())
-        console.log('bearing', map.current.getBearing())
-        console.log('pitch', map.current.getPitch())
+    let mapInitRaf: number | null = null
+
+    const initializeMap = () => {
+      if (map.current) return
+      if (!mapContainer.current) return
+
+      // Delay Mapbox initialization until the container has a measurable size.
+      // This prevents matrix calculation crashes in hidden/zero-sized mounts.
+      if (
+        mapContainer.current.clientWidth === 0 ||
+        mapContainer.current.clientHeight === 0
+      ) {
+        mapInitRaf = window.requestAnimationFrame(initializeMap)
+        return
+      }
+
+      const view = {
+        ...SWITZERLAND_VIEW,
+        ...initialView,
+      }
+
+      const mapOptions: mapboxgl.MapboxOptions = {
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/streets-v12',
+        projection: 'mercator',
+        locale:
+          lang === 'de'
+            ? {
+                'ScrollZoomBlocker.CtrlMessage':
+                  'Strg + Scrollen zum Zoomen der Karte',
+                'ScrollZoomBlocker.CmdMessage':
+                  '\u2318 + Scrollen zum Zoomen der Karte',
+                'TouchPanBlocker.Message': 'Karte mit zwei Fingern bewegen'
+              }
+            : lang === 'fr'
+            ? {
+                'ScrollZoomBlocker.CtrlMessage':
+                  'Ctrl + défilement pour zoomer la carte',
+                'ScrollZoomBlocker.CmdMessage':
+                  '\u2318 + défilement pour zoomer la carte',
+                'TouchPanBlocker.Message':
+                  'Utilisez deux doigts pour déplacer la carte'
+              }
+            : undefined
+      }
+
+      if (hasValidBounds(view.bounds)) {
+        mapOptions.bounds = view.bounds
+      } else {
+        if (hasValidCenter(view.center)) {
+          mapOptions.center = view.center
+        }
+        if (isFiniteNumber(view.zoom)) {
+          mapOptions.zoom = view.zoom
+        }
+      }
+
+      if (isFiniteNumber(view.bearing)) {
+        mapOptions.bearing = view.bearing
+      }
+      if (isFiniteNumber(view.pitch)) {
+        mapOptions.pitch = view.pitch
+      }
+
+      map.current = new mapboxgl.Map(mapOptions)
+      map.current.scrollZoom.disable()
+      map.current.dragPan.disable()
+      if (import.meta.env.DEV) {
+        map.current.on('moveend', () => {
+          if (!map.current) return
+          console.log('bounds', map.current.getBounds()?.toArray().join(', '))
+          console.log('center', map.current.getCenter())
+          console.log('zoom', map.current.getZoom())
+          console.log('bearing', map.current.getBearing())
+          console.log('pitch', map.current.getPitch())
+        })
+      }
+
+      map.current.once('load', () => {
+        map.current?.resize()
+        setMapReady(true)
+        getMap?.(map.current!)
       })
     }
 
-    map.current.once('load', () => {
-      map.current?.resize()
-      setMapReady(true)
-      getMap?.(map.current!)
-    })
-  }, [])
+    initializeMap()
+
+    return () => {
+      if (mapInitRaf != null) {
+        window.cancelAnimationFrame(mapInitRaf)
+      }
+      map.current?.remove()
+      map.current = undefined
+    }
+  }, [initialView, lang, getMap])
 
   useEffect(() => {
     setCurrentContext(prev => ({ ...prev, scrollTarget }))
@@ -287,7 +364,7 @@ export const MapboxMap = ({
       ? typeof heightProp === 'number'
         ? `${heightProp}px`
         : heightProp
-      : '100%'
+      : '500px'
 
   return (
     <MapContext.Provider value={currentContext}>
@@ -301,6 +378,7 @@ export const MapboxMap = ({
             $pointerColor={MapboxDefaults.pointerColor}
             $isInteractive={isInteractive}
             ref={mapContainer}
+            style={{ height: mapHeight }}
           />
           <Help visible={helpVisible} />
         </FullScreenContainer>
@@ -312,6 +390,7 @@ export const MapboxMap = ({
 
 const MapWrapper = styled.div`
   position: relative;
+  height: 100%;
 `
 const FullScreenContainer = styled.div`
   position: relative;

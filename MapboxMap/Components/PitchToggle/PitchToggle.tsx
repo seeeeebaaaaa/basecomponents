@@ -17,19 +17,19 @@ export const PitchToggle = ({
   const className = 'fullscreen-control'
 
   useEffect(() => {
-    if (!context.map || !context.setFullscreen || context.isMobile) return
+    if (!context.map || context.isMobile) return
     const existing = context.map
       .getContainer()
       .getElementsByClassName(className)
     if (existing.length > 0) return
     setCtrlcontainer(document.createElement('div'))
-  }, [context.map, context.setFullscreen])
+  }, [context.map])
 
   useEffect(() => {
-    if (!context.map || !context.setFullscreen || context.isMobile) return
+    if (!context.map ||  context.isMobile) return
     context.map.addControl(
       new CustomControl(
-        context.setFullscreen,
+        () => {},
         context.map,
         <FSButton />,
         className
