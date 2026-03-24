@@ -4,7 +4,7 @@ import {
   useCallback,
   useEffect,
   useRef,
-  useState
+  useState,
 } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -23,9 +23,6 @@ import smoothscroll from 'smoothscroll-polyfill'
 // kick off the polyfill!
 smoothscroll.polyfill()
 
-mapboxgl.accessToken =
-  'pk.eyJ1IjoidGEtaW50ZXJha3RpdiIsImEiOiJjaXNhNGFsdHAwMDB2Mm9wNWdlMTlqMTNuIn0.uj5aGvF3yvEM4V6kNdlbVg'
-
 const MapboxDefaults = {
   pointerColor: 'var(--site-background)'
 }
@@ -40,6 +37,7 @@ export const MapContext = createContext<MapContextType>({} as MapContextType)
 /** Main Mapbox map wrapper providing context to child components. */
 export const MapboxMap = ({
   children,
+  accessToken,
   colorMode = 'light',
   lang = 'de',
   scrollTarget,
@@ -49,6 +47,7 @@ export const MapboxMap = ({
   disabledFeatures = []
 }: {
   children?: ReactNode
+  accessToken?: string
   colorMode?: 'dark' | 'light' | undefined
   lang?: 'de' | 'fr' | undefined
   scrollTarget?: HTMLDivElement | null
@@ -63,6 +62,7 @@ export const MapboxMap = ({
   height?: number | string
   disabledFeatures?: DisabledFeature[]
 }) => {
+  mapboxgl.accessToken = accessToken ?? 'pk.eyJ1IjoidGEtaW50ZXJha3RpdiIsImEiOiJjaXNhNGFsdHAwMDB2Mm9wNWdlMTlqMTNuIn0.uj5aGvF3yvEM4V6kNdlbVg'
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | undefined>()
   const [mapReady, setMapReady] = useState(false)
@@ -92,35 +92,8 @@ export const MapboxMap = ({
     setHeight(windowSize.height)
   }, [])
 
-  /** Activates 3D terrain view with a fly-to animation. */
-  function activateTerrain () {
-    if (map.current) {
-      map.current.flyTo({
-        center: map.current.getCenter(),
-        zoom: 11.5,
-        bearing: map.current.getBearing(),
-        pitch: 60
-      })
-    }
-    activateInteraction()
-    setTerrainActive(true)
-  }
-
-  /** Deactivates terrain and returns to the saved camera position. */
-  function deactivateTerrain () {
-    if (map.current && viewToReturnTo) {
-      map.current.flyTo({
-        center: viewToReturnTo.center,
-        zoom: viewToReturnTo.zoom,
-        bearing: 0,
-        pitch: 0
-      })
-    }
-    setTerrainActive(false)
-  }
-
   /** Enables scroll zoom and drag pan, scrolls to map target. Respects disabledFeatures. */
-  function activateInteraction () {
+  const activateInteraction = useCallback(() => {
     if (map.current) {
       map.current.scrollZoom.enable()
       map.current.dragPan.enable()
@@ -139,10 +112,37 @@ export const MapboxMap = ({
       })
     }
     setIsInteractive(true)
-  }
+  }, [disabledFeatures, scrollTarget])
+
+  /** Deactivates terrain and returns to the saved camera position. */
+  const deactivateTerrain = useCallback(() => {
+    if (map.current && viewToReturnTo) {
+      map.current.flyTo({
+        center: viewToReturnTo.center,
+        zoom: viewToReturnTo.zoom,
+        bearing: 0,
+        pitch: 0
+      })
+    }
+    setTerrainActive(false)
+  }, [viewToReturnTo])
+
+  /** Activates 3D terrain view with a fly-to animation. */
+  const activateTerrain = useCallback(() => {
+    if (map.current) {
+      map.current.flyTo({
+        center: map.current.getCenter(),
+        zoom: 11.5,
+        bearing: map.current.getBearing(),
+        pitch: 60
+      })
+    }
+    activateInteraction()
+    setTerrainActive(true)
+  }, [activateInteraction])
 
   /** Disables interaction and returns to the saved camera view. */
-  function deactivateInteraction () {
+  const deactivateInteraction = useCallback(() => {
     if (map.current) {
       map.current.scrollZoom.disable()
       map.current.dragPan.disable()
@@ -157,30 +157,29 @@ export const MapboxMap = ({
     }
     deactivateTerrain()
     setIsInteractive(false)
-  }
+  }, [viewToReturnTo, deactivateTerrain])
 
   /** Handles perspective and interaction property changes. Respects disabledFeatures. */
-  function handlePropChange (prop: string, value: any) {
-    if (prop === 'perspective') {
-      if (disabledFeatures.includes('perspective')) return
-      if (value) {
-        activateTerrain()
-      } else {
-        deactivateTerrain()
+  const handlePropChange = useCallback(
+    (prop: string, value: any) => {
+      if (prop === 'perspective') {
+        if (disabledFeatures.includes('perspective')) return
+        if (value) {
+          activateTerrain()
+        } else {
+          deactivateTerrain()
+        }
       }
-    }
-    if (prop === 'interaction') {
-      if (value) {
-        activateInteraction()
-      } else {
-        deactivateInteraction()
+      if (prop === 'interaction') {
+        if (value) {
+          activateInteraction()
+        } else {
+          deactivateInteraction()
+        }
       }
-    }
-  }
-
-  function handleHelpChange (e: boolean) {
-    setShowHelp(e)
-  }
+    },
+    [disabledFeatures, activateTerrain, deactivateTerrain, activateInteraction, deactivateInteraction]
+  )
 
   /** Enables or disables cooperative gestures on the map. */
   const handleSetCooperativeGestures = useCallback((enabled: boolean) => {
@@ -230,20 +229,22 @@ export const MapboxMap = ({
     })
     map.current.scrollZoom.disable()
     map.current.dragPan.disable()
-    map.current.on('moveend', () => {
-      if (!map.current) return
-      console.log('bounds', map.current.getBounds()?.toArray().join(', '))
-      console.log('center', map.current.getCenter())
-      console.log('zoom', map.current.getZoom())
-      console.log('bearing', map.current.getBearing())
-      console.log('pitch', map.current.getPitch())
-    })
+    if (import.meta.env.DEV) {
+      map.current.on('moveend', () => {
+        if (!map.current) return
+        console.log('bounds', map.current.getBounds()?.toArray().join(', '))
+        console.log('center', map.current.getCenter())
+        console.log('zoom', map.current.getZoom())
+        console.log('bearing', map.current.getBearing())
+        console.log('pitch', map.current.getPitch())
+      })
+    }
 
     map.current.once('load', () => {
       map.current?.resize()
+      setMapReady(true)
+      getMap?.(map.current!)
     })
-    setMapReady(true)
-    getMap?.(map.current)
   }, [])
 
   useEffect(() => {
@@ -258,7 +259,7 @@ export const MapboxMap = ({
       colorMode,
       scrollTarget,
       handlePropChange,
-      setShowHelp: handleHelpChange,
+      setShowHelp,
       setViewToReturnTo: (e: mapboxgl.CameraOptions) => setViewToReturnTo(e),
       viewToReturnTo,
       helpVisible,
@@ -276,7 +277,9 @@ export const MapboxMap = ({
     viewToReturnTo,
     isMobile,
     mapReady,
-    cooperativeGestures
+    cooperativeGestures,
+    handlePropChange,
+    scrollTarget,
   ])
 
   const mapHeight =
@@ -356,7 +359,7 @@ const MapContainer = styled.div<{
     margin-top: 0px;
     margin-right: 4px;
   }
-  // ANNOTATION POPUP POINTER
+  /* ANNOTATION POPUP POINTER */
   .mapboxgl-popup-anchor-top .mapboxgl-popup-tip,
   .mapboxgl-popup-anchor-top-left .mapboxgl-popup-tip,
   .mapboxgl-popup-anchor-top-right .mapboxgl-popup-tip {

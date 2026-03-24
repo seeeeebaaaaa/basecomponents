@@ -37,19 +37,14 @@ type MapContextType = {
   colorMode?: 'light' | 'dark' | undefined
   //
   handlePropChange?: (prop: string, value: any) => void
-  setFullscreen?: (fullscreen: boolean) => void
-  setTerrain?: (terrain: boolean) => void
-  setIsInteractive?: (terrain: boolean) => void
   setShowHelp?: (showHelp: boolean) => void
   setViewToReturnTo?: (view: mapboxgl.CameraOptions) => void
-  setPerspectiveControl?: (position: any) => void
   //
   viewToReturnTo?: mapboxgl.CameraOptions
   //
   helpVisible?: boolean
   isInteractive?: boolean
   terrainActive?: boolean
-  isFullscreen?: boolean
   //
   changeDefault?: (prop: keyof DefaultsType, value: any) => void
 

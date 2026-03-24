@@ -1,7 +1,6 @@
 import mapboxgl from 'mapbox-gl'
 import { useContext, useEffect } from 'react'
 import { MapContext } from 'components/MapboxMap/Mapbox'
-import { useMFContext } from 'components/MFHelpers'
 
 /** Zooms to a feature's location on click for the specified map layers. */
 export const ZoomToFeature = ({

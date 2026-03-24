@@ -3,13 +3,13 @@ import { MapStyleProps } from '../../Types/mapboxtypes'
 import { useContext, useEffect } from 'react'
 
 export const MapStyle = (props: MapStyleProps) => {
-  var context = useContext(MapContext)
-  var { light, dark, lightDe, darkDe, lightFr, darkFr, colorMode, lang } = props
+  const context = useContext(MapContext)
+  const { light, dark, lightDe, darkDe, lightFr, darkFr, colorMode, lang } = props
 
   useEffect(() => {
     if (!context.map) return
-    var lightStyle = ((lang === 'de' ? lightDe : lightFr) || light) as string
-    var darkStyle = ((lang === 'de' ? darkDe : darkFr) ||
+    const lightStyle = ((lang === 'de' ? lightDe : lightFr) || light) as string
+    const darkStyle = ((lang === 'de' ? darkDe : darkFr) ||
       dark ||
       light) as string
 

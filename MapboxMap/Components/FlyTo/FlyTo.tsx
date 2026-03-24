@@ -10,13 +10,13 @@ export const FlyTo = ({
   lng: number
   zoom?: number
 }) => {
-  var context = useContext(MapContext)
+  const context = useContext(MapContext)
 
   useEffect(() => {
     if (!context.map) return
     context.map.flyTo({
       center: [lng, lat],
-      zoom: zoom || context.map.getZoom(),
+      zoom: zoom ?? context.map.getZoom(),
     })
   }, [lat, lng, context.map])
 

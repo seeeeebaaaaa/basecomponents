@@ -2,7 +2,6 @@ import mapboxgl from 'mapbox-gl'
 import { useContext, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { MapContext } from 'components/MapboxMap/Mapbox'
-import { useMFContext } from 'components/MFHelpers'
 
 /** Displays a tooltip following the cursor when hovering over specified map layers. */
 export const FeatureTooltip = ({
@@ -11,12 +10,11 @@ export const FeatureTooltip = ({
   anchor
 }: {
   layer: string[]
-  content: (e: any) => JSX.Element
+  content: (e: [string, Record<string, any>][]) => JSX.Element
   anchor?: mapboxgl.Popup['options']['anchor']
 }) => {
   const context = useContext(MapContext)
-  const { map } = context
-  const { isMobile } = useMFContext()
+  const { map, isMobile } = context
   const isPinned = useRef(false)
   const skipFlyOnCloseRef = useRef(false)
   const viewToReturnToRef = useRef(context.viewToReturnTo)

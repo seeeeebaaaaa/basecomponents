@@ -21,7 +21,7 @@ export const InteractiveToggle = ({
   onDeactivate?: () => void
   cooperativeGestures?: boolean
 }) => {
-  var { isInteractive, handlePropChange, isMobile, setCooperativeGestures } = useContext(MapContext)
+  const { isInteractive, handlePropChange, isMobile, setCooperativeGestures } = useContext(MapContext)
 
   useEffect(() => {
     setCooperativeGestures?.(cooperativeGesturesProp)
