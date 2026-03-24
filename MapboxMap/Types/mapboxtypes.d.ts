@@ -12,6 +12,7 @@ type MapStyleProps = {
   colorMode?: 'light' | 'dark' | undefined
   lang?: 'de' | 'fr'
 }
+
 type MapAnnotation = {
   pos: { lat: number; lng: number }
   element: JSX.Element
@@ -20,8 +21,8 @@ type MapAnnotation = {
   connectorStyle?: ConnectorSpecs
   startMarker?: 'arrow' | 'circle' | 'triangle' | 'none' | string
   endMarker?: 'arrow' | 'circle' | 'triangle' | 'none' | string
+  textAnchor?: 'left' | 'center' | 'right'
 }
-
 
 type DefaultsType = {
   pointerColor: string
@@ -56,4 +57,22 @@ type MapContextType = {
   disabledFeatures?: DisabledFeature[]
   cooperativeGestures?: boolean
   setCooperativeGestures?: (enabled: boolean) => void
+}
+
+
+export 
+type ConnectorSpecs = {
+  type?: 'straight' | 'curved'
+  direction?: 'cw' | 'ccw'
+  width?: number
+  markerSize?: number
+  markerColor?: string
+  stroke?: string
+  strokeWidth?: number | string
+  strokeOpacity?: number // 0 to 1
+  strokeLinecap?: 'butt' | 'round' | 'square'
+  strokeLinejoin?: 'miter' | 'round' | 'bevel'
+  strokeMiterlimit?: number
+  strokeDasharray?: string | number | undefined
+  strokeDashoffset?: number | string
 }

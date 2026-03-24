@@ -1,10 +1,10 @@
 import mapboxgl from 'mapbox-gl'
 import styled from 'styled-components'
 import { Fragment, useContext, useEffect, useRef } from 'react'
-import { MapAnnotation } from '../../Types/mapboxtypes'
+import { ConnectorSpecs, MapAnnotation } from '../../Types/mapboxtypes'
 import { createRoot, Root } from 'react-dom/client'
 import { MapContext } from 'components/MapboxMap/Mapbox'
-import { PointAnnotation } from 'components/AnnotatedContent/PointAnnotation'
+import { PointAnnotation } from './PointAnnotation'
 
 type MapEntry = {
   root: Root
@@ -15,11 +15,18 @@ type MapEntry = {
 export const Annotations = ({
   annotations,
   hidePointer = false,
-  pointerColor
+  pointerColor,
+  style
 }: {
   annotations: MapAnnotation[]
   hidePointer?: boolean
   pointerColor?: string
+  style?: {
+    connectorStyle: ConnectorSpecs
+    endMarker?: 'arrow' | 'circle' | 'triangle' | 'none' | string
+    startMarker?: 'arrow' | 'circle' | 'triangle' | 'none' | string
+    textAnchor?: 'left' | 'center' | 'right'
+  }
 }) => {
   const context = useContext(MapContext)
   const { map, changeDefault } = context
@@ -40,14 +47,15 @@ export const Annotations = ({
       const placeholder = document.createElement('div')
       placeholder.className = 'annotation-placeholder'
       const root = createRoot(placeholder)
-
       if (anno.offset != null) {
         root.render(
           <PointAnnotation
             offset={anno.offset}
-            connectorStyle={anno.connectorStyle}
-            startMarker={anno.startMarker}
-            endMarker={anno.endMarker}
+            connectorStyle={style?.connectorStyle}
+            startMarker={style?.startMarker}
+            endMarker={style?.endMarker}
+            markerSize={style?.connectorStyle?.markerSize}
+            textAnchor={anno.textAnchor ?? 'left'}
           >
             {anno.element}
           </PointAnnotation>
@@ -55,7 +63,7 @@ export const Annotations = ({
 
         const marker = new mapboxgl.Marker({
           element: placeholder,
-          anchor: 'center'
+          anchor: 'top-left'
         })
           .setLngLat(anno.pos)
           .addTo(map)
@@ -110,6 +118,7 @@ const AnnotationLayerComponent = ({
                 connectorStyle={m.connectorStyle}
                 startMarker={m.startMarker}
                 endMarker={m.endMarker}
+                textAnchor={m.textAnchor}
               >
                 {m.element}
               </PointAnnotation>

@@ -8,14 +8,15 @@ export const NavigationControl = ({
   position = 'top-right',
   showWhenActivated = false,
   showHome = false,
-  homeIcon,
+  homeIcon
 }: {
   position?: CTRLPositions
   showWhenActivated?: boolean
   showHome?: boolean
   homeIcon?: string
 }) => {
-  const { map, isInteractive, disabledFeatures, viewToReturnTo } = useContext(MapContext)
+  const { map, isInteractive, disabledFeatures, viewToReturnTo } =
+    useContext(MapContext)
   const controlRef = useRef<mapboxgl.NavigationControl | undefined>()
   const homeControlRef = useRef<HomeControl | undefined>()
   const viewRef = useRef(viewToReturnTo)
@@ -34,7 +35,11 @@ export const NavigationControl = ({
 
       if (showHome && !homeControlRef.current) {
         const home = new HomeControl(() => {
-          if (viewRef.current) map.flyTo(viewRef.current)
+          if (viewRef.current)
+            map.flyTo({
+              ...viewRef.current,
+              padding: 0
+            })
         }, homeIcon)
         map.addControl(home, position)
         homeControlRef.current = home
@@ -71,12 +76,12 @@ class HomeControl implements mapboxgl.IControl {
   private onClick: () => void
   private icon: string | undefined
 
-  constructor(onClick: () => void, icon?: string) {
+  constructor (onClick: () => void, icon?: string) {
     this.onClick = onClick
     this.icon = icon
   }
 
-  onAdd() {
+  onAdd () {
     this.container = document.createElement('div')
     this.container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group'
 
@@ -97,7 +102,7 @@ class HomeControl implements mapboxgl.IControl {
     return this.container
   }
 
-  onRemove() {
+  onRemove () {
     this.container?.parentNode?.removeChild(this.container)
     this.container = undefined
   }

@@ -1,106 +1,147 @@
 import mapboxgl from 'mapbox-gl'
-import styled from 'styled-components'
-import { ReactNode, useContext, useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { MapContext } from 'components/MapboxMap/Mapbox'
-import { createRoot, Root } from 'react-dom/client'
+import { useMFContext } from 'components/MFHelpers'
 
 /** Displays a tooltip following the cursor when hovering over specified map layers. */
 export const FeatureTooltip = ({
   layer,
   content,
+  anchor
 }: {
   layer: string[]
   content: (e: any) => JSX.Element
+  anchor?: mapboxgl.Popup['options']['anchor']
 }) => {
-  const [popup, setPopup] = useState<mapboxgl.Popup | undefined>()
   const context = useContext(MapContext)
   const { map } = context
-  const rootRef = useRef<Root | undefined>()
+  const { isMobile } = useMFContext()
   const isPinned = useRef(false)
-  const pinnedPopupRef = useRef<{ popup: mapboxgl.Popup; root: Root } | undefined>()
+  const skipFlyOnCloseRef = useRef(false)
   const viewToReturnToRef = useRef(context.viewToReturnTo)
   viewToReturnToRef.current = context.viewToReturnTo
 
+  const hoverPlaceholderRef = useRef<HTMLDivElement | null>(null)
+  const hoverPopupRef = useRef<mapboxgl.Popup | null>(null)
+  const [hoverData, setHoverData] = useState<any>(null)
+
+  const pinnedPlaceholderRef = useRef<HTMLDivElement | null>(null)
+  const pinnedPopupRef = useRef<mapboxgl.Popup | null>(null)
+  const [pinnedData, setPinnedData] = useState<any>(null)
+
+  /** Set up hover popup container. */
   useEffect(() => {
-    if (!context.map || popup) return
+    if (!map || hoverPopupRef.current) return
 
     const placeholder = document.createElement('div')
-    const root = createRoot(placeholder)
-    rootRef.current = root
-    root.render(<></>)
+    hoverPlaceholderRef.current = placeholder
 
-    const pop = new mapboxgl.Popup({ closeButton: false, closeOnClick: false })
+    const pop = new mapboxgl.Popup({
+      closeButton: false,
+      closeOnClick: false,
+      anchor,
+      className: 'hover-popup'
+    })
       .setDOMContent(placeholder)
-      .addTo(context.map)
-    setPopup(pop)
+      .addTo(map)
+    hoverPopupRef.current = pop
 
     return () => {
-      root.unmount()
       pop.remove()
-      pinnedPopupRef.current?.root.unmount()
-      pinnedPopupRef.current?.popup.remove()
+      hoverPopupRef.current = null
+      hoverPlaceholderRef.current = null
+      pinnedPopupRef.current?.remove()
+      pinnedPopupRef.current = null
+      pinnedPlaceholderRef.current = null
     }
-  }, [context.map])
+  }, [map])
 
+  /** Bind mouse and zoom event handlers for tooltip interaction. */
   useEffect(() => {
-    if (!context.map || !popup) return
-    const currentMap = context.map
+    if (!map || !hoverPopupRef.current) return
+    const currentMap = map
+    const popup = hoverPopupRef.current
 
-    const handlers: { layer: string; move: (e: any) => void; leave: () => void }[] = []
+    const handlers: {
+      layer: string
+      move: (e: any) => void
+      leave: () => void
+    }[] = []
 
-    layer.forEach((l) => {
-      const handleMouseMove = (e: mapboxgl.MapMouseEvent & { features?: mapboxgl.GeoJSONFeature[] }) => {
+    layer.forEach(l => {
+      const handleMouseMove = (
+        e: mapboxgl.MapMouseEvent & { features?: mapboxgl.GeoJSONFeature[] }
+      ) => {
         if (isPinned.current) return
         currentMap.getCanvas().style.cursor = 'crosshair'
         const features = e.features
         if (!features) return
-        const featuresCleaned = features.map((f: any) => [f.layer.id, f.properties])
-        rootRef.current?.render(content(featuresCleaned))
+        const featuresCleaned = features.map((f: any) => [
+          f.layer.id,
+          f.properties
+        ])
+        setHoverData(featuresCleaned)
         popup.setLngLat(e.lngLat)
       }
 
       const handleMouseLeave = () => {
         if (isPinned.current) return
         currentMap.getCanvas().style.cursor = ''
-        rootRef.current?.render(<></>)
+        setHoverData(null)
         popup.setLngLat([0, 0])
       }
-
-      currentMap.on('mousemove', l, handleMouseMove)
-      currentMap.on('mouseleave', l, handleMouseLeave)
-      handlers.push({ layer: l, move: handleMouseMove, leave: handleMouseLeave })
+      if (!isMobile) {
+        currentMap.on('mousemove', l, handleMouseMove)
+        currentMap.on('mouseleave', l, handleMouseLeave)
+      }
+      handlers.push({
+        layer: l,
+        move: handleMouseMove,
+        leave: handleMouseLeave
+      })
     })
 
     /** Pins a separate tooltip with close button after ZoomToFeature zoom. */
     const handleShowFromZoom = (e: any) => {
       isPinned.current = true
+      setHoverData(null)
       popup.setLngLat([0, 0])
 
-      pinnedPopupRef.current?.root.unmount()
-      pinnedPopupRef.current?.popup.remove()
+      skipFlyOnCloseRef.current = true
+      pinnedPopupRef.current?.remove()
+      pinnedPlaceholderRef.current = null
 
       const placeholder = document.createElement('div')
-      const root = createRoot(placeholder)
-      root.render(content(e.featureData))
+      pinnedPlaceholderRef.current = placeholder
 
-      const pinnedPopup = new mapboxgl.Popup({ closeButton: true, closeOnClick: false })
+      const pinnedPopup = new mapboxgl.Popup({
+        closeButton: true,
+        closeOnClick: false,
+        anchor
+      })
         .setDOMContent(placeholder)
         .setLngLat(e.lngLat)
         .addTo(currentMap)
 
+      setPinnedData(e.featureData)
+
       pinnedPopup.on('close', () => {
         isPinned.current = false
-        root.unmount()
-        pinnedPopupRef.current = undefined        
+        setPinnedData(null)
+        pinnedPopupRef.current = null
+        pinnedPlaceholderRef.current = null
 
+        if (skipFlyOnCloseRef.current) {
+          skipFlyOnCloseRef.current = false
+          return
+        }
         if (viewToReturnToRef.current) {
           currentMap.flyTo(viewToReturnToRef.current)
-          console.log('viewToReturnTo', viewToReturnToRef.current)
-
         }
       })
 
-      pinnedPopupRef.current = { popup: pinnedPopup, root }
+      pinnedPopupRef.current = pinnedPopup
     }
 
     currentMap.on('featuretooltip:show', handleShowFromZoom)
@@ -112,16 +153,16 @@ export const FeatureTooltip = ({
       })
       currentMap.off('featuretooltip:show', handleShowFromZoom)
     }
-  }, [layer, map, popup])
+  }, [layer, map])
 
   return (
-    <HiddenStyledComponentForceCSSInjection>
-      {content([])}
-    </HiddenStyledComponentForceCSSInjection>
+    <>
+      {hoverPlaceholderRef.current &&
+        hoverData &&
+        createPortal(content(hoverData), hoverPlaceholderRef.current)}
+      {pinnedPlaceholderRef.current &&
+        pinnedData &&
+        createPortal(content(pinnedData), pinnedPlaceholderRef.current)}
+    </>
   )
 }
-
-const HiddenStyledComponentForceCSSInjection = styled.div`
-  display: none;
-  pointer-events: none;
-`
