@@ -1,5 +1,5 @@
 import mapboxgl from 'mapbox-gl'
-import { useContext, useEffect } from 'react'
+import { useContext, useEffect, useRef } from 'react'
 import { MapContext } from 'components/MapboxMap/Mapbox'
 
 /** Converts a distance in meters to pixels at a given latitude and zoom level. */
@@ -27,13 +27,24 @@ export const FeaturesInDistance = ({
   onResult: (features: mapboxgl.GeoJSONFeature[]) => void
 }) => {
   const { map } = useContext(MapContext)
+  const onResultRef = useRef(onResult)
 
   useEffect(() => {
-    if (!map || !coordinates) return
+    onResultRef.current = onResult
+  }, [onResult])
+
+  useEffect(() => {
+    if (!map) return
+    const lng = coordinates?.lng
+    const lat = coordinates?.lat
+    if (typeof lng !== 'number' || typeof lat !== 'number') return
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+    let attempts = 0
+    const maxAttempts = 40
 
     const query = () => {
-      const center = map.project([coordinates.lng, coordinates.lat])
-      const radiusPx = metersToPixels(distanceMeters, coordinates.lat, map.getZoom())
+      const center = map.project([lng, lat])
+      const radiusPx = metersToPixels(distanceMeters, lat, map.getZoom())
 
       const bbox: [mapboxgl.PointLike, mapboxgl.PointLike] = [
         [center.x - radiusPx, center.y - radiusPx],
@@ -41,16 +52,34 @@ export const FeaturesInDistance = ({
       ]
 
       const features = map.queryRenderedFeatures(bbox, { layers: layer })
-      onResult(features)
+      onResultRef.current(features)
     }
 
-    if (map.loaded()) {
+    const hasAllLayers = () => layer.every(layerId => !!map.getLayer(layerId))
+
+    const queryWhenReady = () => {
+      if (
+        !map.isStyleLoaded() ||
+        !hasAllLayers() ||
+        map.isMoving() ||
+        !map.loaded()
+      ) {
+        if (attempts >= maxAttempts) return
+        attempts += 1
+        timeoutId = setTimeout(queryWhenReady, 100)
+        return
+      }
       query()
-    } else {
-      map.once('idle', query)
-      return () => { map.off('idle', query) }
     }
-  }, [coordinates, distanceMeters, layer, map])
+
+    queryWhenReady()
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+    }
+  }, [coordinates?.lng, coordinates?.lat, distanceMeters, map, layer.join('|')])
 
   return null
 }

@@ -32,6 +32,7 @@ const SWITZERLAND_VIEW = {
   center: { lng: 8.2275, lat: 46.8182 } as { lng: number; lat: number },
   zoom: 7,
 }
+const EMPTY_DISABLED_FEATURES: DisabledFeature[] = []
 
 /** Returns true when a value is a finite number. */
 const isFiniteNumber = (value: unknown): value is number =>
@@ -75,7 +76,7 @@ export const MapboxMap = ({
   getMap,
   initialView,
   height: heightProp,
-  disabledFeatures = []
+  disabledFeatures = EMPTY_DISABLED_FEATURES
 }: {
   children?: ReactNode
   accessToken?: string
@@ -364,7 +365,7 @@ export const MapboxMap = ({
       ? typeof heightProp === 'number'
         ? `${heightProp}px`
         : heightProp
-      : '500px'
+      : '80vh'
 
   return (
     <MapContext.Provider value={currentContext}>
@@ -553,4 +554,8 @@ const MapContainer = styled.div<{
     transform: translate(-50%, 0vh);
     border-radius: 10px;
   }
+
+.mapboxgl-ctrl-geocoder--powered-by{
+  display: none !important;
+}
 `
