@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
 
 export interface ScrollTransformPosition {
@@ -20,6 +20,17 @@ interface ScrollTransformProps {
   showDevScrollPosition?: boolean
 }
 
+type RelativeOffsetBase =
+  | { x: number; y: number }
+  | ((zoom: number) => { x: number; y: number })
+
+interface AppliedScrollState {
+  scrollY: number
+  xOffset: number
+  yOffset: number
+  zoom: number
+}
+
 const BASE_POSITION: ScrollTransformPosition = {
   scroll: 0,
   xOffset: 0,
@@ -30,14 +41,36 @@ const BASE_POSITION: ScrollTransformPosition = {
 }
 
 const POSITION_EPSILON = 0.01
+const ZOOM_EPSILON = 0.001
+const OVERLAY_CLASS = 'scroll-transform-overlay'
+const INLINE_POSITIONED_SELECTOR =
+  '[style*="position: absolute"],[style*="position:absolute"],[style*="position: fixed"],[style*="position:fixed"]'
 
-/** Returns the rendered content width for the current zoom. */
-const getScaledCssLength = (value: number | string, zoom: number) =>
-  typeof value === 'number' ? `${value * zoom}px` : value
+/** Collects percentage-anchored overlays so they keep a constant screen size while zooming. */
+const findScrollTransformOverlays = (root: HTMLElement) => {
+  const overlays = Array.from(
+    root.querySelectorAll<HTMLElement>(INLINE_POSITIONED_SELECTOR)
+  ).filter(({ style: { position, left, top } }) => {
+    if (position !== 'absolute' && position !== 'fixed') return false
 
-/** Returns the rendered content width in pixels when maxWidth is numeric. */
-const getScaledPixelLength = (value: number | string, zoom: number) =>
-  typeof value === 'number' ? value * zoom : null
+    return left.includes('%') || top.includes('%')
+  })
+
+  overlays.forEach((overlay) => overlay.classList.add(OVERLAY_CLASS))
+
+  return overlays
+}
+
+/** Counter-scales the overlays so their anchor stays put while their content keeps its size. */
+const applyOverlayScale = (overlays: HTMLElement[], zoom: number) => {
+  const overlayScale = String(1 / zoom)
+
+  overlays.forEach((overlay) => overlay.style.setProperty('scale', overlayScale))
+}
+
+/** Returns the unscaled CSS width for the moving content. */
+const getCssLength = (value: number | string) =>
+  typeof value === 'number' ? `${value}px` : value
 
 /** Returns the x offset while supporting the old offset alias. */
 const getPositionXOffset = (position: ScrollTransformPosition) =>
@@ -58,6 +91,31 @@ const getPositionYOffsetPercent = (position: ScrollTransformPosition) =>
 /** Interpolates a numeric value between two keyframes. */
 const interpolateValue = (from: number, to: number, progress: number) =>
   from + (to - from) * progress
+
+/** Resolves a percent offset base for a specific zoom value. */
+const getOffsetBase = (relativeOffsetBase: RelativeOffsetBase, zoom: number) =>
+  typeof relativeOffsetBase === 'function'
+    ? relativeOffsetBase(zoom)
+    : relativeOffsetBase
+
+/** Converts a keyframe into pixel offsets using that keyframe's own zoom. */
+const resolvePositionTransform = (
+  position: ScrollTransformPosition,
+  relativeOffsetBase: RelativeOffsetBase
+) => {
+  const zoom = position.zoom ?? 1
+  const offsetBase = getOffsetBase(relativeOffsetBase, zoom)
+
+  return {
+    xOffset:
+      getPositionXOffset(position) +
+      (offsetBase.x * getPositionXOffsetPercent(position)) / 100,
+    yOffset:
+      getPositionYOffset(position) +
+      (offsetBase.y * getPositionYOffsetPercent(position)) / 100,
+    zoom,
+  }
+}
 
 /** Sorts scroll positions and adds a zero-offset start point when needed. */
 const getSortedPositions = (positions: ScrollTransformPosition[]) => {
@@ -107,10 +165,10 @@ const getViewportHeight = (
   }, baseContentHeight)
 }
 
-/** Prevents scroll noise from triggering extra layout writes. */
+/** Prevents scroll noise from triggering extra compositor writes. */
 const hasSameScrollState = (
-  previous: ReturnType<typeof getScrollTransform> & { scrollY: number },
-  next: ReturnType<typeof getScrollTransform> & { scrollY: number }
+  previous: AppliedScrollState,
+  next: AppliedScrollState
 ) =>
   Math.abs(previous.scrollY - next.scrollY) < POSITION_EPSILON &&
   Math.abs(previous.xOffset - next.xOffset) < POSITION_EPSILON &&
@@ -121,16 +179,43 @@ const hasSameScrollState = (
 const getRelativeScrollY = (element: HTMLElement | null) => {
   if (!element) return window.scrollY
 
-  const elementTop = element.getBoundingClientRect().top + window.scrollY
+  return -element.getBoundingClientRect().top
+}
 
-  return window.scrollY - elementTop
+/** Writes the GPU transform without going through React. */
+const applyContentTransform = (
+  element: HTMLElement | null,
+  xOffset: number,
+  yOffset: number,
+  zoom: number
+) => {
+  if (!element) return
+
+  element.style.transform = `translate3d(${xOffset}px, ${yOffset}px, 0) scale(${zoom})`
+}
+
+/** Updates the fixed debug overlay without scheduling a React render. */
+const applyDevOverlay = (
+  element: HTMLElement | null,
+  state: AppliedScrollState,
+  viewportHeight: number
+) => {
+  if (!element) return
+
+  element.textContent = [
+    `scrollY: ${Math.round(state.scrollY)}px`,
+    `x: ${Math.round(state.xOffset)}px`,
+    `y: ${Math.round(state.yOffset)}px`,
+    `zoom: ${state.zoom.toFixed(2)}`,
+    `height: ${Math.round(viewportHeight)}px`,
+  ].join('\n')
 }
 
 /** Interpolates the x offset, y offset, and zoom for the current scroll position. */
 export const getScrollTransform = (
   scrollY: number,
   positions: ScrollTransformPosition[],
-  relativeOffsetBase = {
+  relativeOffsetBase: RelativeOffsetBase = {
     x: 0,
     y: 0,
   }
@@ -139,17 +224,7 @@ export const getScrollTransform = (
 
   if (sortedPositions.length === 0) return { xOffset: 0, yOffset: 0, zoom: 1 }
   if (scrollY <= sortedPositions[0].scroll) {
-    const position = sortedPositions[0]
-
-    return {
-      xOffset:
-        getPositionXOffset(position) +
-        (relativeOffsetBase.x * getPositionXOffsetPercent(position)) / 100,
-      yOffset:
-        getPositionYOffset(position) +
-        (relativeOffsetBase.y * getPositionYOffsetPercent(position)) / 100,
-      zoom: position.zoom ?? 1,
-    }
+    return resolvePositionTransform(sortedPositions[0], relativeOffsetBase)
   }
 
   for (let index = 1; index < sortedPositions.length; index += 1) {
@@ -158,61 +233,40 @@ export const getScrollTransform = (
 
     if (scrollY > nextPosition.scroll) continue
     if (previousPosition.scroll === nextPosition.scroll) {
-      return {
-        xOffset:
-          getPositionXOffset(nextPosition) +
-          (relativeOffsetBase.x * getPositionXOffsetPercent(nextPosition)) / 100,
-        yOffset:
-          getPositionYOffset(nextPosition) +
-          (relativeOffsetBase.y * getPositionYOffsetPercent(nextPosition)) / 100,
-        zoom: nextPosition.zoom ?? 1,
-      }
+      return resolvePositionTransform(nextPosition, relativeOffsetBase)
     }
 
     const progress =
       (scrollY - previousPosition.scroll) /
       (nextPosition.scroll - previousPosition.scroll)
-    const previousZoom = previousPosition.zoom ?? 1
-    const nextZoom = nextPosition.zoom ?? 1
-    const xOffset = interpolateValue(
-      getPositionXOffset(previousPosition),
-      getPositionXOffset(nextPosition),
-      progress
+    const previousTransform = resolvePositionTransform(
+      previousPosition,
+      relativeOffsetBase
     )
-    const xOffsetPercent = interpolateValue(
-      getPositionXOffsetPercent(previousPosition),
-      getPositionXOffsetPercent(nextPosition),
-      progress
-    )
-    const yOffset = interpolateValue(
-      getPositionYOffset(previousPosition),
-      getPositionYOffset(nextPosition),
-      progress
-    )
-    const yOffsetPercent = interpolateValue(
-      getPositionYOffsetPercent(previousPosition),
-      getPositionYOffsetPercent(nextPosition),
-      progress
+    const nextTransform = resolvePositionTransform(
+      nextPosition,
+      relativeOffsetBase
     )
 
     return {
-      xOffset: xOffset + (relativeOffsetBase.x * xOffsetPercent) / 100,
-      yOffset: yOffset + (relativeOffsetBase.y * yOffsetPercent) / 100,
-      zoom: interpolateValue(previousZoom, nextZoom, progress),
+      xOffset: interpolateValue(
+        previousTransform.xOffset,
+        nextTransform.xOffset,
+        progress
+      ),
+      yOffset: interpolateValue(
+        previousTransform.yOffset,
+        nextTransform.yOffset,
+        progress
+      ),
+      zoom: interpolateValue(previousTransform.zoom, nextTransform.zoom, progress),
     }
   }
 
-  const lastPosition = sortedPositions[sortedPositions.length - 1]
-
-  return {
-    xOffset:
-      getPositionXOffset(lastPosition) +
-      (relativeOffsetBase.x * getPositionXOffsetPercent(lastPosition)) / 100,
-    yOffset:
-      getPositionYOffset(lastPosition) +
-      (relativeOffsetBase.y * getPositionYOffsetPercent(lastPosition)) / 100,
-    zoom: lastPosition.zoom ?? 1,
-  }
+  return resolvePositionTransform(
+    sortedPositions[sortedPositions.length - 1],
+    relativeOffsetBase
+  )
 }
 
 /** Interpolates the x offset for the current scroll position. */
@@ -229,15 +283,17 @@ const ScrollTransform = ({
   className,
   showDevScrollPosition = false,
 }: ScrollTransformProps) => {
-  const [scrollState, setScrollState] = useState({
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const movingContentRef = useRef<HTMLDivElement>(null)
+  const devOverlayRef = useRef<HTMLDivElement>(null)
+  const overlaysRef = useRef<HTMLElement[]>([])
+  const appliedOverlayZoomRef = useRef(Number.POSITIVE_INFINITY)
+  const appliedScrollStateRef = useRef<AppliedScrollState>({
     scrollY: 0,
     xOffset: 0,
     yOffset: 0,
     zoom: 1,
   })
-  const viewportRef = useRef<HTMLDivElement>(null)
-  const movingContentRef = useRef<HTMLDivElement>(null)
-  const zoomRef = useRef(scrollState.zoom)
   const [baseContentHeight, setBaseContentHeight] = useState(0)
   const [layoutSize, setLayoutSize] = useState({
     contentWidth: 0,
@@ -245,42 +301,92 @@ const ScrollTransform = ({
   })
   const sortedPositions = useMemo(() => getSortedPositions(positions), [positions])
   const viewportHeight = getViewportHeight(baseContentHeight, sortedPositions)
-  const contentWidth = getScaledCssLength(maxWidth, scrollState.zoom)
-
-  zoomRef.current = scrollState.zoom
-
-  const getOverflowWidth = (zoom: number) => {
-    const scaledPixelLength = getScaledPixelLength(maxWidth, zoom)
-    const measuredContentWidth = scaledPixelLength ?? layoutSize.contentWidth
-
-    return Math.max(0, measuredContentWidth - layoutSize.viewportWidth)
-  }
-
-  const getRelativeOffsetBase = (zoom: number) => ({
-    x: getOverflowWidth(zoom),
-    y: baseContentHeight * zoom,
+  const contentWidth = getCssLength(maxWidth)
+  const initialZoom = sortedPositions[0]?.zoom ?? 1
+  const layoutRef = useRef({
+    baseContentHeight,
+    contentWidth: layoutSize.contentWidth,
+    viewportWidth: layoutSize.viewportWidth,
+    maxWidth,
+    sortedPositions,
+    viewportHeight,
+    showDevScrollPosition,
   })
 
-  useEffect(() => {
+  layoutRef.current = {
+    baseContentHeight,
+    contentWidth: layoutSize.contentWidth,
+    viewportWidth: layoutSize.viewportWidth,
+    maxWidth,
+    sortedPositions,
+    viewportHeight,
+    showDevScrollPosition,
+  }
+
+  const getRelativeOffsetBase = (zoom: number) => {
+    const layout = layoutRef.current
+    const baseWidth =
+      typeof layout.maxWidth === 'number' ? layout.maxWidth : layout.contentWidth
+
+    return {
+      x: Math.max(0, baseWidth * zoom - layout.viewportWidth),
+      y: layout.baseContentHeight * zoom,
+    }
+  }
+
+  const applyScrollTransform = () => {
+    const layout = layoutRef.current
+    const scrollY = getRelativeScrollY(viewportRef.current)
+    const nextScrollState = {
+      scrollY,
+      ...getScrollTransform(scrollY, layout.sortedPositions, getRelativeOffsetBase),
+    }
+
+    if (hasSameScrollState(appliedScrollStateRef.current, nextScrollState)) return
+
+    appliedScrollStateRef.current = nextScrollState
+    applyContentTransform(
+      movingContentRef.current,
+      nextScrollState.xOffset,
+      nextScrollState.yOffset,
+      nextScrollState.zoom
+    )
+
+    // Overlays only need a write when the zoom itself moved, so panning stays a single
+    // compositor-only transform write. The applied zoom is tracked separately so slow
+    // zoom ramps accumulate instead of being swallowed by the epsilon check.
+    if (Math.abs(appliedOverlayZoomRef.current - nextScrollState.zoom) >= ZOOM_EPSILON) {
+      appliedOverlayZoomRef.current = nextScrollState.zoom
+      applyOverlayScale(overlaysRef.current, nextScrollState.zoom)
+    }
+
+    if (layout.showDevScrollPosition) {
+      applyDevOverlay(devOverlayRef.current, nextScrollState, layout.viewportHeight)
+    }
+  }
+
+  const applyScrollTransformRef = useRef(applyScrollTransform)
+  applyScrollTransformRef.current = applyScrollTransform
+
+  useLayoutEffect(() => {
     const element = movingContentRef.current
     const viewport = viewportRef.current
 
     if (!element || !viewport) return
 
     const updateLayoutMeasurements = () => {
-      const contentRect = element.getBoundingClientRect()
-      const viewportRect = viewport.getBoundingClientRect()
-      const measuredBaseHeight = contentRect.height / zoomRef.current
+      const measuredBaseHeight = element.offsetHeight
+      const nextSize = {
+        contentWidth: element.offsetWidth,
+        viewportWidth: viewport.offsetWidth,
+      }
 
       setBaseContentHeight((previousHeight) =>
-        Math.max(previousHeight, measuredBaseHeight)
+        Math.abs(previousHeight - measuredBaseHeight) < POSITION_EPSILON
+          ? previousHeight
+          : measuredBaseHeight
       )
       setLayoutSize((previousSize) => {
-        const nextSize = {
-          contentWidth: contentRect.width,
-          viewportWidth: viewportRect.width,
-        }
-
         if (
           Math.abs(previousSize.contentWidth - nextSize.contentWidth) <
             POSITION_EPSILON &&
@@ -294,55 +400,73 @@ const ScrollTransform = ({
       })
     }
 
+    /** Rebuilds the overlay list and brings newly mounted overlays to the current zoom. */
+    const collectOverlays = () => {
+      const { zoom } = appliedScrollStateRef.current
+
+      overlaysRef.current = findScrollTransformOverlays(element)
+      appliedOverlayZoomRef.current = zoom
+      applyOverlayScale(overlaysRef.current, zoom)
+    }
+
     updateLayoutMeasurements()
+    collectOverlays()
 
-    const observer = new ResizeObserver(updateLayoutMeasurements)
-    observer.observe(element)
-    observer.observe(viewport)
+    const resizeObserver = new ResizeObserver(updateLayoutMeasurements)
+    resizeObserver.observe(element)
+    resizeObserver.observe(viewport)
 
-    return () => observer.disconnect()
+    const mutationObserver = new MutationObserver(collectOverlays)
+    mutationObserver.observe(element, { childList: true, subtree: true })
+
+    return () => {
+      resizeObserver.disconnect()
+      mutationObserver.disconnect()
+    }
   }, [])
 
   useEffect(() => {
+    applyScrollTransformRef.current()
+  }, [baseContentHeight, layoutSize, maxWidth, sortedPositions])
+
+  // Sampling the scroll offset once per frame while in view keeps the transform locked to the
+  // compositor. Scroll events are coalesced and delivered late during iOS momentum scrolling,
+  // which is what makes an event-driven transform stutter on mobile.
+  useEffect(() => {
+    const viewport = viewportRef.current
+
+    if (!viewport) return
+
     let animationFrame = 0
 
-    const handleScroll = () => {
-      if (animationFrame) return
-
-      animationFrame = window.requestAnimationFrame(() => {
-        animationFrame = 0
-        const scrollY = getRelativeScrollY(viewportRef.current)
-        const nextTransform = getScrollTransform(scrollY, sortedPositions)
-        const relativeOffsetBase = getRelativeOffsetBase(nextTransform.zoom)
-        const nextScrollState = {
-          scrollY,
-          ...getScrollTransform(scrollY, sortedPositions, relativeOffsetBase),
-        }
-
-        setScrollState((previousScrollState) =>
-          hasSameScrollState(previousScrollState, nextScrollState)
-            ? previousScrollState
-            : nextScrollState
-        )
-      })
+    const runFrame = () => {
+      animationFrame = window.requestAnimationFrame(runFrame)
+      applyScrollTransformRef.current()
     }
 
-    handleScroll()
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    window.addEventListener('resize', handleScroll)
+    const stopLoop = () => {
+      if (!animationFrame) return
+
+      window.cancelAnimationFrame(animationFrame)
+      animationFrame = 0
+    }
+
+    const intersectionObserver = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return stopLoop()
+        if (!animationFrame) runFrame()
+      },
+      { rootMargin: '20% 0px' }
+    )
+
+    applyScrollTransformRef.current()
+    intersectionObserver.observe(viewport)
 
     return () => {
-      if (animationFrame) window.cancelAnimationFrame(animationFrame)
-      window.removeEventListener('scroll', handleScroll)
-      window.removeEventListener('resize', handleScroll)
+      intersectionObserver.disconnect()
+      stopLoop()
     }
-  }, [
-    baseContentHeight,
-    layoutSize.contentWidth,
-    layoutSize.viewportWidth,
-    maxWidth,
-    sortedPositions,
-  ])
+  }, [])
 
   return (
     <ScrollViewport
@@ -350,25 +474,11 @@ const ScrollTransform = ({
       $height={viewportHeight}
       className={`${className ?? ''} scroll-transform`.trim()}
     >
-      {showDevScrollPosition && (
-        <DevScrollPosition>
-          scrollY: {Math.round(scrollState.scrollY)}px
-          <br />
-          x: {Math.round(scrollState.xOffset)}px
-          <br />
-          y: {Math.round(scrollState.yOffset)}px
-          <br />
-          zoom: {scrollState.zoom.toFixed(2)}
-          <br />
-          height: {Math.round(viewportHeight)}px
-        </DevScrollPosition>
-      )}
+      {showDevScrollPosition && <DevScrollPosition ref={devOverlayRef} />}
       <MovingContent
         ref={movingContentRef}
         $width={contentWidth}
-        $xOffset={scrollState.xOffset}
-        $yOffset={scrollState.yOffset}
-        $zoom={scrollState.zoom}
+        $initialZoom={initialZoom}
         className="scroll-transform-content"
       >
         {children}
@@ -388,20 +498,29 @@ const ScrollViewport = styled.div<{
 
 const MovingContent = styled.div<{
   $width: string
-  $xOffset: number
-  $yOffset: number
-  $zoom: number
+  $initialZoom: number
 }>`
-  --scroll-content-zoom: ${({ $zoom }) => $zoom};
+  --scroll-content-zoom: ${({ $initialZoom }) => $initialZoom};
+  --scroll-content-overlay-scale: calc(1 / var(--scroll-content-zoom));
   width: ${({ $width }) => $width};
   max-width: ${({ $width }) => $width};
   contain: layout;
   overflow: visible;
-  transform: translate(
-    ${({ $xOffset }) => $xOffset}px,
-    ${({ $yOffset }) => $yOffset}px
-  );
+  transform: translate3d(0, 0, 0) scale(${({ $initialZoom }) => $initialZoom});
+  transform-origin: 0 0;
+  backface-visibility: hidden;
   will-change: transform;
+
+  /*
+   * Percentage-anchored overlays keep a constant screen size while the content zooms.
+   * This is the first-paint value only; afterwards applyOverlayScale writes the scale
+   * inline on the collected overlays, which avoids invalidating the whole subtree.
+   */
+  .scroll-transform-overlay,
+  [style*='position: absolute'][style*='%'] {
+    transform-origin: 0 0;
+    scale: var(--scroll-content-overlay-scale);
+  }
 `
 
 const DevScrollPosition = styled.div`
@@ -415,7 +534,8 @@ const DevScrollPosition = styled.div`
   color: white;
   font-family: monospace;
   font-size: 12px;
-  line-height: 1;
+  line-height: 1.35;
+  white-space: pre;
   pointer-events: none;
 `
 
