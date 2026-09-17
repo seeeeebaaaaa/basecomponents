@@ -75,6 +75,11 @@ interface MFContextProviderProps {
   placeHolderHeight?: number;
 }
 
+interface MFPropertiesOverrideProps {
+  children: ReactNode;
+  properties: Record<string, string>;
+}
+
 export const MFContextProvider: React.FC<MFContextProviderProps> = ({
   children,
   locale,
@@ -186,6 +191,26 @@ export const MFContextProvider: React.FC<MFContextProviderProps> = ({
       {children}
     </MFContext.Provider>
   );
+};
+
+/** Overrides selected CMS properties for a nested component preview. */
+export const MFPropertiesOverride: React.FC<MFPropertiesOverrideProps> = ({
+  children,
+  properties,
+}) => {
+  const context = useMFContext();
+  const value = useMemo(
+    () => ({
+      ...context,
+      properties: {
+        ...context.properties,
+        ...properties,
+      },
+    }),
+    [context, properties]
+  );
+
+  return <MFContext.Provider value={value}>{children}</MFContext.Provider>;
 };
 
 export const useMFContext = () => {

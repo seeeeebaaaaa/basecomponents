@@ -1,13 +1,24 @@
 import React from 'react';
 import { LazyViz } from './LazyViz';
+import { MFPropertiesOverride } from './MFContext';
 
 // Detect development mode
-const isDev = window.location.hostname.includes("localhost");
+const isDev = import.meta.env.DEV;
+
+interface PartVariant {
+  id: string;
+  properties: Record<string, string>;
+}
+
+interface PartDefinition {
+  content: React.ReactNode;
+  variants?: PartVariant[];
+}
 
 interface PartProps {
   partId: string;
   currentPart: string;
-  content: React.ReactNode;
+  definition: PartDefinition;
   placeHolderHeight?: string | number;
   onVisible?: (name?: string) => void;
 }
@@ -21,31 +32,33 @@ interface PartProps {
 export const Part: React.FC<PartProps> = ({
   partId,
   currentPart,
-  content,
+  definition,
   placeHolderHeight,
   onVisible
 }) => {
-  // Only render if this part matches the current part or if in development mode
-  if (partId === currentPart || isDev) {
-    return (<>{content}</>
-      // <LazyViz
-      //   name={`Part ${partId}`}
-      //   placeHolderHeight={placeHolderHeight}
-      //   onVisible={onVisible}
-      // >
-      //   {content}
-      // </LazyViz>
-    );
+  if (partId !== currentPart && !isDev) {
+    return null;
   }
-  
-  // Return null if this part doesn't match the current part
-  return null;
+
+  if (!isDev || !definition.variants?.length) {
+    return <>{definition.content}</>;
+  }
+
+  return (
+    <>
+      {definition.variants.map(({ id, properties }) => (
+        <MFPropertiesOverride key={id} properties={properties}>
+          {definition.content}
+        </MFPropertiesOverride>
+      ))}
+    </>
+  );
 };
 
 interface PartSplitterProps {
   currentPart: string;
   parts: {
-    [partId: string]: React.ReactNode;
+    [partId: string]: PartDefinition;
   };
   placeHolderHeights?: {
     [partId: string]: string | number;
@@ -67,12 +80,12 @@ export const PartSplitter: React.FC<PartSplitterProps> = ({
 }) => {
   return (
     <>
-      {Object.entries(parts).map(([partId, content]) => (
+      {Object.entries(parts).map(([partId, definition]) => (
         <Part
           key={partId}
           partId={partId}
           currentPart={currentPart}
-          content={content}
+          definition={definition}
           placeHolderHeight={placeHolderHeights[partId]}
           onVisible={onVisible}
         />
