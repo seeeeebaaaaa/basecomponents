@@ -8,6 +8,7 @@ type ShapeStyle = {
   patternSpace?: number
   patternRotation?: number
   cornerRadius?: number
+  strokeLinecap?: 'butt' | 'round' | 'square'
 }
 
 type MarkerStyle = {

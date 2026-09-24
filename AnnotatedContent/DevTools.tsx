@@ -8,7 +8,7 @@ import React, {
 import styled, { keyframes } from 'styled-components'
 import type { Annotation, DevOptions } from './AnnotatedContent'
 
-const isDev = window.location.hostname === 'localhost'
+const isDev = typeof window !== 'undefined' && window.location.hostname === 'localhost'
 
 /** Dev-mode annotation tools: click-to-copy, drag-to-reposition, annotation panel. */
 export function useAnnotationDevTools (

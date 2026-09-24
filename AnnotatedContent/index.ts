@@ -1,4 +1,5 @@
 export * from './AnnotatedContent'
 export * from './AreaAnnotation'
 export * from './ArrowAnnotation'
+export * from './MultiPointAnnotation'
 export * from './PointAnnotation'

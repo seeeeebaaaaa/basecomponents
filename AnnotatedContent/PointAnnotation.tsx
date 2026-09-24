@@ -264,26 +264,28 @@ export const PointAnnotation = ({
           $isVisible={isVisible}
         />
       </LineSvg>
-      <ContentContainer
-        style={{
-          minWidth: 'max-content',
-          left: h,
-          top: v,
-          transform: `translate(${shiftLabelHorizontal}%,${
-            v >= 0 ? 0 : 'calc(-100%)'
-          })`,
-          marginTop:
-            direction === 'left' || direction === 'right' ? '-0.75em' : 0,
-          paddingRight: shiftToLeft ? padding + 'px' : 0,
-          paddingLeft: shiftToRight ? padding + 'px' : 0,
-          paddingBottom: shiftToTop ? padding + 'px' : 0,
-          paddingTop: shiftToBottom ? padding + 'px' : 0
-        }}
-        $isVisible={isVisible}
-        $shouldAnimate={shouldAnimate}
-      >
-        {children}
-      </ContentContainer>
+      {children != null && (
+        <ContentContainer
+          style={{
+            minWidth: 'max-content',
+            left: h,
+            top: v,
+            transform: `translate(${shiftLabelHorizontal}%,${
+              v >= 0 ? 0 : 'calc(-100%)'
+            })`,
+            marginTop:
+              direction === 'left' || direction === 'right' ? '-0.75em' : 0,
+            paddingRight: shiftToLeft ? padding + 'px' : 0,
+            paddingLeft: shiftToRight ? padding + 'px' : 0,
+            paddingBottom: shiftToTop ? padding + 'px' : 0,
+            paddingTop: shiftToBottom ? padding + 'px' : 0
+          }}
+          $isVisible={isVisible}
+          $shouldAnimate={shouldAnimate}
+        >
+          {children}
+        </ContentContainer>
+      )}
     </AnnotationContainer>
   )
 }

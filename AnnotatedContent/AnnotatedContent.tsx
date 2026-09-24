@@ -53,7 +53,7 @@ export interface DevOptions {
 }
 
 export interface AnnotatedContentProps {
-  children: ReactNode
+  children?: ReactNode
   annotations: Array<Annotation>
   className?: string
   shapeStyle?: ShapeStyle
@@ -150,10 +150,10 @@ export const AnnotatedContent = ({
   const validateAnnotation = useCallback((annotation: Annotation): boolean => {
     if (annotation.hide) return false
     return (
-      annotation.pos.x >= 0 &&
-      annotation.pos.x <= 100 &&
-      annotation.pos.y >= 0 &&
-      annotation.pos.y <= 100
+      annotation.pos.x >= -100 &&
+      annotation.pos.x <= 200 &&
+      annotation.pos.y >= -100 &&
+      annotation.pos.y <= 200
     )
   }, [])
 
@@ -218,6 +218,7 @@ export const AnnotatedContent = ({
               ...elementProps.customMarkers,
             },
             fullSize: [width, height],
+            pos: annotation.pos,
           })}
         </div>
       )
@@ -258,6 +259,7 @@ const AnnotatedContentContainer = styled.div`
   display: inline-block;
   line-height: 0;
   width: 100%;
+  overflow: visible;
   * {
     line-height: 1.2em;
   }

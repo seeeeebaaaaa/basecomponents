@@ -12,6 +12,7 @@ const defaultShapeStyle: Required<ShapeStyle> = {
   strokeWidth: 0.5,
   strokeDasharray: "none",
   cornerRadius: 10,
+  strokeLinecap: 'butt',
 }
 
 
