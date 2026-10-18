@@ -2,164 +2,483 @@ import { useMFContext } from '../MFHelpers'
 import React, { ReactNode } from 'react'
 import styled from 'styled-components'
 import {
+  DEFAULT_BAR_BORDER_RADIUS,
   DEFAULT_BAR_HEIGHT,
-  DEFAULT_BAR_LABELS_STYLE,
-  DEFAULT_COLOR_KEY_TITLE_STYLE,
-  DEFAULT_GRADIENT_BAR_BORDER_RADIUS,
-  DEFAULT_GROUP_SPACING,
-  DEFAULT_GROUP_TITLE_STYLE,
-  DEFAULT_ITEM_ROW_SPACE,
-  DEFAULT_ITEM_SPACE,
+  DEFAULT_END_LABEL_STYLE,
+  DEFAULT_ITEM_GAP,
   DEFAULT_LABEL_STYLE,
   DEFAULT_LINE_THICKNESS,
-  DEFAULT_SIZE
+  DEFAULT_ROW_GAP,
+  DEFAULT_SECTION_GAP,
+  DEFAULT_SECTION_TITLE_STYLE,
+  DEFAULT_SWATCH_SHAPE,
+  DEFAULT_SWATCH_SIZE,
+  DEFAULT_TITLE_STYLE
 } from './ColorKeyDefaults'
 
-export type SwatchType = 'circle' | 'square' | 'line' | 'custom'
+export type SwatchShape = 'circle' | 'square' | 'line' | 'custom'
 
-export interface ColorKeyItem {
+export interface Stroke {
+  width?: number
   color?: string
+}
+
+export interface BarStyle {
+  /** Maximum width of the bar in px. Unconstrained when not set. */
+  width?: number
+  height?: number
+  borderRadius?: number
+}
+
+export interface Gap {
+  /** Horizontal gap between items. */
+  item?: number
+  /** Vertical gap between wrapped rows. */
+  row?: number
+}
+
+export interface ColorKeySwatch {
   label: ReactNode
-  type: SwatchType
-  customSwatch?: ReactNode
-  swatchSize?: number
+  color?: string
+  /** Defaults to 'circle'. Implied to be 'custom' when `swatch` is given. */
+  shape?: SwatchShape
+  /** Custom swatch node, rendered in place of the built-in shapes. */
+  swatch?: ReactNode
+  size?: number
   lineThickness?: number
-  strokeWidth?: number
-  strokeColor?: string
+  stroke?: Stroke
   labelStyle?: React.CSSProperties
 }
 
-export interface ColorKeyGradientItem {
+/** A color stop on a gradient bar. Stops without a value are spread evenly. */
+export interface ColorKeyStop {
   color: string
-  value: number
+  value?: number
   label?: ReactNode
 }
 
-/** Item for discrete color scale. Renders adjacent swatches with no gap. */
-export interface ColorKeyDiscreteScaleItem {
+/** One equally sized segment of a stepped bar. */
+export interface ColorKeyStep {
   color: string
   label?: ReactNode
 }
 
-export interface ColorKeyGroup {
-  items:
-    | ColorKeyItem[]
-    | ColorKeyGradientItem[]
-    | ColorKeyDiscreteScaleItem[]
+interface SectionBase {
   title?: ReactNode
-  /** When true, renders as gradient bar. items must be ColorKeyGradientItem[] */
-  gradient?: boolean
-  /** When true, renders discrete color scale (adjacent swatches, no gap). items must be ColorKeyDiscreteScaleItem[] */
-  discreteScale?: boolean
-  /** Swatch group props. Number of item columns within this group. */
+  /** Overrides styles.sectionTitle for this section. */
+  titleStyle?: React.CSSProperties
+  /** Overrides styles.label for this section. */
+  labelStyle?: React.CSSProperties
+}
+
+interface BarSectionBase extends SectionBase {
+  /** Pair of labels above the bar marking its start and end. */
+  endLabels?: [ReactNode, ReactNode]
+  /** Overrides styles.endLabel for this section. */
+  endLabelStyle?: React.CSSProperties
+  bar?: BarStyle
+}
+
+export interface SwatchSection extends SectionBase {
+  type: 'swatches'
+  swatches: ColorKeySwatch[]
+  /** Swatches per row. Falls back to defaults.columns, else flex wrap. */
+  columns?: number
+  gap?: Gap
+  swatchSize?: number
+  stroke?: Stroke
+}
+
+export interface GradientSection extends BarSectionBase {
+  type: 'gradient'
+  stops: ColorKeyStop[]
+  /** Value range the bar spans. Defaults to the min and max of the stop values. */
+  domain?: [number, number]
+}
+
+export interface StepsSection extends BarSectionBase {
+  type: 'steps'
+  steps: ColorKeyStep[]
+}
+
+export type ColorKeySection = SwatchSection | GradientSection | StepsSection
+
+/** Fallbacks for every section. Any section or item may override them locally. */
+export interface ColorKeyDefaults {
   columns?: number
   swatchSize?: number
-  strokeWidth?: number
-  strokeColor?: string
-  itemSpace?: number
-  /** Vertical gap between wrapped rows. Defaults to itemSpace when not set. */
-  itemRowSpace?: number
-  labelStyle?: React.CSSProperties
-  groupTitleStyle?: React.CSSProperties
-  /** Gradient / discrete scale group props */
-  maxWidth?: number
-  height?: number
-  barLabels?: [ReactNode, ReactNode]
-  barLabelsStyle?: React.CSSProperties
-  borderRadius?: number
+  shape?: SwatchShape
+  stroke?: Stroke
+  gap?: Gap
+  bar?: BarStyle
 }
 
-function isGroup (x: ColorKeyItem | ColorKeyGroup): x is ColorKeyGroup {
-  return 'items' in x && Array.isArray(x.items)
+export interface ColorKeyStyles {
+  title?: React.CSSProperties
+  sectionTitle?: React.CSSProperties
+  label?: React.CSSProperties
+  endLabel?: React.CSSProperties
 }
 
-function isGradientItem (x: unknown): x is ColorKeyGradientItem {
-  return typeof x === 'object' && x !== null && 'value' in x && 'color' in x
-}
-
-function isDiscreteScaleItem (x: unknown): x is ColorKeyDiscreteScaleItem {
-  return typeof x === 'object' && x !== null && 'color' in x && !('value' in x)
-}
-
-interface SwatchGroupProps {
-  gradient?: never
-  items: ColorKeyItem[] | ColorKeyGroup[]
+export interface ColorKeyProps {
+  sections: ColorKeySection | ColorKeySection[]
   title?: ReactNode
-  titleStyle?: React.CSSProperties
-  /** Number of groups per row. Default 1 (e.g. on mobile). */
+  /** Sections per row. Default 1. */
   columns?: number
-  /** Number of item columns within a group. Default 2 on mobile, else flex wrap. */
-  itemColumns?: number
-  swatchSize?: number
-  strokeWidth?: number
-  strokeColor?: string
-  groupSpacing?: number
-  /** Gap between groups when columns > 1. Defaults to groupSpacing. */
-  groupGap?: number
-  itemSpace?: number
-  /** Vertical gap between wrapped rows. Defaults to itemSpace when not set. */
-  itemRowSpace?: number
-  labelStyle?: React.CSSProperties
-  groupTitleStyle?: React.CSSProperties
-  /** Defaults for gradient groups */
-  maxWidth?: number
-  height?: number
-  barLabels?: [ReactNode, ReactNode]
-  barLabelsStyle?: React.CSSProperties
-  borderRadius?: number
+  /** Gap between sections. */
+  gap?: number
+  defaults?: ColorKeyDefaults
+  styles?: ColorKeyStyles
 }
-
-interface GradientProps {
-  gradient: true
-  items: ColorKeyGradientItem[]
-  title?: ReactNode
-  titleStyle?: React.CSSProperties
-  labelStyle?: React.CSSProperties
-  barLabelsStyle?: React.CSSProperties
-  maxWidth?: number
-  height?: number
-  barLabels?: [ReactNode, ReactNode]
-  borderRadius?: number
-}
-
-interface DiscreteScaleProps {
-  discreteScale: true
-  items: ColorKeyDiscreteScaleItem[]
-  title?: ReactNode
-  titleStyle?: React.CSSProperties
-  labelStyle?: React.CSSProperties
-  barLabelsStyle?: React.CSSProperties
-  maxWidth?: number
-  height?: number
-  barLabels?: [ReactNode, ReactNode]
-  borderRadius?: number
-}
-
-export type ColorKeyProps =
-  | SwatchGroupProps
-  | GradientProps
-  | DiscreteScaleProps
-  | (ColorKeyItem & { items?: never })
 
 /**
- * Wraps content with optional color key title.
+ * Renders a color key built from one or more sections: swatch lists, gradient bars or stepped bars.
+ * Each section names its own data (`swatches`, `stops`, `steps`), and values cascade
+ * root -> section -> item with the nearest one winning.
  */
-function withColorKeyTitle (
-  content: ReactNode,
-  title?: ReactNode,
-  titleStyle?: React.CSSProperties
-) {
-  if (!title) return content
-  const mergedTitleStyle = mergeLabelStyle(
-    DEFAULT_COLOR_KEY_TITLE_STYLE,
-    titleStyle
+const ColorKey = ({
+  sections,
+  title,
+  columns = 1,
+  gap,
+  defaults,
+  styles
+}: ColorKeyProps) => {
+  const { isMobile } = useMFContext()
+  const list = Array.isArray(sections) ? sections : [sections]
+  if (!list.length) return null
+
+  const resolvedDefaults: ColorKeyDefaults = {
+    ...defaults,
+    columns: defaults?.columns ?? (isMobile ? 2 : undefined)
+  }
+  const content = (
+    <SectionsContainer $columns={columns} $gap={gap ?? DEFAULT_SECTION_GAP}>
+      {list.map((section, i) =>
+        renderSection(section, resolvedDefaults, styles, i)
+      )}
+    </SectionsContainer>
   )
+  if (!title) return content
+
   return (
     <ColorKeyWrapper>
-      <ColorKeyTitle style={mergedTitleStyle}>{title}</ColorKeyTitle>
+      <Title style={mergeStyle(DEFAULT_TITLE_STYLE, styles?.title)}>
+        {title}
+      </Title>
       {content}
     </ColorKeyWrapper>
   )
+}
+
+/**
+ * Renders a single section with its optional title.
+ */
+function renderSection (
+  section: ColorKeySection,
+  defaults: ColorKeyDefaults,
+  styles: ColorKeyStyles | undefined,
+  key: number
+) {
+  const body = renderSectionBody(section, defaults, styles)
+  if (!body) return null
+
+  const titleStyle = mergeStyle(
+    DEFAULT_SECTION_TITLE_STYLE,
+    styles?.sectionTitle,
+    section.titleStyle
+  )
+  return (
+    <SectionWrapper key={key}>
+      {section.title && (
+        <SectionTitle style={titleStyle}>{section.title}</SectionTitle>
+      )}
+      {body}
+    </SectionWrapper>
+  )
+}
+
+/**
+ * Picks the renderer matching the section type, skipping sections that hold no entries.
+ */
+function renderSectionBody (
+  section: ColorKeySection,
+  defaults: ColorKeyDefaults,
+  styles: ColorKeyStyles | undefined
+): ReactNode {
+  switch (section.type) {
+    case 'gradient':
+      if (!section.stops?.length) return warnEmpty(section.type)
+      return renderGradient(section, defaults, styles)
+    case 'steps':
+      if (!section.steps?.length) return warnEmpty(section.type)
+      return renderSteps(section, defaults, styles)
+    case 'swatches':
+      if (!section.swatches?.length) return warnEmpty(section.type)
+      return renderSwatches(section, defaults, styles)
+    default:
+      return null
+  }
+}
+
+/**
+ * Renders a list of labelled swatches, either wrapping or in a fixed number of columns.
+ */
+function renderSwatches (
+  section: SwatchSection,
+  defaults: ColorKeyDefaults,
+  styles: ColorKeyStyles | undefined
+) {
+  const labelStyle = mergeStyle(
+    DEFAULT_LABEL_STYLE,
+    styles?.label,
+    section.labelStyle
+  )
+  return (
+    <ItemsContainer
+      $columns={section.columns ?? defaults.columns}
+      $itemGap={section.gap?.item ?? defaults.gap?.item ?? DEFAULT_ITEM_GAP}
+      $rowGap={section.gap?.row ?? defaults.gap?.row ?? DEFAULT_ROW_GAP}
+    >
+      {section.swatches.map((swatch, i) => (
+        <SwatchRow key={i}>
+          <span aria-hidden='true'>
+            {renderSwatch(swatch, {
+              size:
+                swatch.size ??
+                section.swatchSize ??
+                defaults.swatchSize ??
+                DEFAULT_SWATCH_SIZE,
+              shape: swatch.swatch
+                ? 'custom'
+                : swatch.shape ?? defaults.shape ?? DEFAULT_SWATCH_SHAPE,
+              stroke: swatch.stroke ?? section.stroke ?? defaults.stroke
+            })}
+          </span>
+          <Label style={mergeStyle(labelStyle, swatch.labelStyle)}>
+            {swatch.label}
+          </Label>
+        </SwatchRow>
+      ))}
+    </ItemsContainer>
+  )
+}
+
+/**
+ * Renders a continuous gradient bar with each label sitting at its stop's true position.
+ */
+function renderGradient (
+  section: GradientSection,
+  defaults: ColorKeyDefaults,
+  styles: ColorKeyStyles | undefined
+) {
+  const stops = resolveStops(section.stops, section.domain)
+  const bar = resolveBar(section.bar, defaults.bar)
+  const labelStyle = mergeStyle(
+    DEFAULT_LABEL_STYLE,
+    styles?.label,
+    section.labelStyle
+  )
+  const labelled = stops.filter(stop => stop.label != null)
+  const gradientCss =
+    stops.length > 1
+      ? stops.map(stop => `${stop.color} ${stop.percent}%`).join(', ')
+      : `${stops[0].color} 0%, ${stops[0].color} 100%`
+
+  return (
+    <BarContainer $maxWidth={bar.width}>
+      {renderEndLabels(section, styles)}
+      <GradientBar
+        $gradient={gradientCss}
+        $height={bar.height}
+        $borderRadius={bar.borderRadius}
+      />
+      {labelled.length > 0 && (
+        <PositionedLabels>
+          <LabelSpacer style={labelStyle} aria-hidden='true'>
+            &nbsp;
+          </LabelSpacer>
+          {labelled.map((stop, i) => (
+            <PositionedLabel key={i} $percent={stop.percent} style={labelStyle}>
+              {stop.label}
+            </PositionedLabel>
+          ))}
+        </PositionedLabels>
+      )}
+    </BarContainer>
+  )
+}
+
+/**
+ * Renders a bar of equally sized color segments with labels centered beneath them.
+ */
+function renderSteps (
+  section: StepsSection,
+  defaults: ColorKeyDefaults,
+  styles: ColorKeyStyles | undefined
+) {
+  const bar = resolveBar(section.bar, defaults.bar)
+  const labelStyle = mergeStyle(
+    DEFAULT_LABEL_STYLE,
+    styles?.label,
+    section.labelStyle
+  )
+  const hasLabels = section.steps.some(step => step.label != null)
+
+  return (
+    <BarContainer $maxWidth={bar.width}>
+      {renderEndLabels(section, styles)}
+      <StepsBar $height={bar.height} $borderRadius={bar.borderRadius}>
+        {section.steps.map((step, i) => (
+          <StepSegment key={i} $color={step.color} />
+        ))}
+      </StepsBar>
+      {hasLabels && (
+        <StepLabels $columns={section.steps.length}>
+          {section.steps.map((step, i) => (
+            <Label key={i} style={labelStyle}>
+              {step.label}
+            </Label>
+          ))}
+        </StepLabels>
+      )}
+    </BarContainer>
+  )
+}
+
+/**
+ * Renders the pair of labels above a bar marking its start and end.
+ */
+function renderEndLabels (
+  section: BarSectionBase,
+  styles: ColorKeyStyles | undefined
+) {
+  const { endLabels } = section
+  if (!endLabels) return null
+  const style = mergeStyle(
+    DEFAULT_END_LABEL_STYLE,
+    styles?.endLabel,
+    section.endLabelStyle
+  )
+  return (
+    <EndLabels>
+      <Label style={style}>{endLabels[0]}</Label>
+      <Label style={style}>{endLabels[1]}</Label>
+    </EndLabels>
+  )
+}
+
+interface ResolvedSwatch {
+  size: number
+  shape: SwatchShape
+  stroke?: Stroke
+}
+
+/**
+ * Renders the swatch mark for the given shape.
+ */
+function renderSwatch (
+  swatch: ColorKeySwatch,
+  resolved: ResolvedSwatch
+): ReactNode {
+  const { size, shape, stroke } = resolved
+  const color = swatch.color ?? 'transparent'
+  const strokeProps =
+    stroke?.width && stroke.width > 0
+      ? { $strokeWidth: stroke.width, $strokeColor: stroke.color }
+      : {}
+
+  switch (shape) {
+    case 'custom':
+      return swatch.swatch ?? null
+    case 'square':
+      return <SquareSwatch $color={color} $size={size} {...strokeProps} />
+    case 'line':
+      return (
+        <LineContainer $size={size}>
+          <LineSwatch
+            $color={color}
+            $thickness={swatch.lineThickness ?? DEFAULT_LINE_THICKNESS}
+            {...strokeProps}
+          />
+        </LineContainer>
+      )
+    default:
+      return <CircleSwatch $color={color} $size={size} {...strokeProps} />
+  }
+}
+
+interface ResolvedStop {
+  color: string
+  percent: number
+  label?: ReactNode
+}
+
+/**
+ * Places every stop on a 0-100 scale. Stops are spread evenly unless all of them
+ * carry a value, in which case they are sorted and mapped onto the domain.
+ */
+function resolveStops (
+  stops: ColorKeyStop[],
+  domain?: [number, number]
+): ResolvedStop[] {
+  const values = stops.map(stop => stop.value)
+  if (values.some(value => value === undefined)) {
+    if (values.some(value => value !== undefined)) {
+      console.warn(
+        '[ColorKey] Gradient stops mix set and unset values. Spreading all stops evenly.'
+      )
+    }
+    const lastIndex = stops.length - 1 || 1
+    return stops.map((stop, i) => ({
+      color: stop.color,
+      label: stop.label,
+      percent: (i / lastIndex) * 100
+    }))
+  }
+
+  const sorted = [...stops].sort((a, b) => (a.value ?? 0) - (b.value ?? 0))
+  const [min, max] = domain ?? [
+    sorted[0].value ?? 0,
+    sorted[sorted.length - 1].value ?? 0
+  ]
+  const range = max - min || 1
+  return sorted.map(stop => ({
+    color: stop.color,
+    label: stop.label,
+    percent: clampPercent((((stop.value ?? 0) - min) / range) * 100)
+  }))
+}
+
+/**
+ * Merges bar styling from a section over the root defaults.
+ */
+function resolveBar (bar?: BarStyle, defaults?: BarStyle) {
+  return {
+    width: bar?.width ?? defaults?.width,
+    height: bar?.height ?? defaults?.height ?? DEFAULT_BAR_HEIGHT,
+    borderRadius:
+      bar?.borderRadius ?? defaults?.borderRadius ?? DEFAULT_BAR_BORDER_RADIUS
+  }
+}
+
+/**
+ * Merges style objects with later sources overriding earlier ones.
+ */
+function mergeStyle (
+  ...styles: (React.CSSProperties | undefined)[]
+): React.CSSProperties {
+  return Object.assign({}, ...styles.filter(Boolean))
+}
+
+const clampPercent = (percent: number) => Math.min(100, Math.max(0, percent))
+
+/**
+ * Warns about a section that would render nothing, so it is not silently dropped.
+ */
+function warnEmpty (type: ColorKeySection['type']) {
+  console.warn(`[ColorKey] Section of type "${type}" has no entries.`)
+  return null
 }
 
 const ColorKeyWrapper = styled.div`
@@ -167,9 +486,41 @@ const ColorKeyWrapper = styled.div`
   flex-direction: column;
 `
 
-const ColorKeyTitle = styled.div``
+const Title = styled.div``
 
-const Container = styled.div`
+const SectionsContainer = styled.div<{ $columns: number; $gap: number }>`
+  display: ${props => (props.$columns > 1 ? 'grid' : 'flex')};
+  flex-direction: column;
+  grid-template-columns: ${props =>
+    props.$columns > 1 ? `repeat(${props.$columns}, 1fr)` : 'unset'};
+  gap: ${props => props.$gap}px;
+`
+
+const SectionWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
+`
+
+const SectionTitle = styled.span``
+
+interface ItemsContainerProps {
+  $columns?: number
+  $itemGap: number
+  $rowGap: number
+}
+
+const ItemsContainer = styled.div<ItemsContainerProps>`
+  display: ${props => (props.$columns !== undefined ? 'grid' : 'flex')};
+  flex-wrap: ${props => (props.$columns === undefined ? 'wrap' : 'unset')};
+  grid-template-columns: ${props =>
+    props.$columns !== undefined ? `repeat(${props.$columns}, 1fr)` : 'unset'};
+  column-gap: ${props => props.$itemGap}px;
+  row-gap: ${props => props.$rowGap}px;
+  align-items: center;
+`
+
+const SwatchRow = styled.div`
   display: flex;
   align-items: center;
   gap: 5px;
@@ -227,505 +578,14 @@ const LineSwatch = styled.span<
       : 'none'};
 `
 
-interface SwatchDefaults {
-  defaultSwatchSize?: number
-  defaultStrokeWidth?: number
-  defaultStrokeColor?: string
-}
-
-/**
- * Renders the swatch based on type
- */
-function renderSwatch (
-  props: ColorKeyItem,
-  defaults?: SwatchDefaults
-): ReactNode {
-  const size = props.swatchSize ?? defaults?.defaultSwatchSize ?? DEFAULT_SIZE
-  const lineThickness = props.lineThickness ?? DEFAULT_LINE_THICKNESS
-  const strokeWidth = props.strokeWidth ?? defaults?.defaultStrokeWidth
-  const strokeColor = props.strokeColor ?? defaults?.defaultStrokeColor
-
-  const strokeProps =
-    strokeWidth && strokeWidth > 0
-      ? { $strokeWidth: strokeWidth, $strokeColor: strokeColor }
-      : {}
-
-  switch (props.type) {
-    case 'circle':
-      return (
-        <CircleSwatch
-          $color={props.color ?? 'transparent'}
-          $size={size}
-          {...strokeProps}
-        />
-      )
-    case 'square':
-      return (
-        <SquareSwatch
-          $color={props.color ?? 'transparent'}
-          $size={size}
-          {...strokeProps}
-        />
-      )
-    case 'line':
-      return (
-        <LineContainer $size={size}>
-          <LineSwatch
-            $color={props.color ?? 'transparent'}
-            $thickness={lineThickness}
-            {...strokeProps}
-          />
-        </LineContainer>
-      )
-    case 'custom':
-      return props.customSwatch ?? null
-    default:
-      return null
-  }
-}
-
-interface ColorKeyItemComponentProps extends ColorKeyItem {
-  defaultSwatchSize?: number
-  defaultStrokeWidth?: number
-  defaultStrokeColor?: string
-  defaultLabelStyle?: React.CSSProperties
-}
-
-/**
- * Merges label styles with later sources overriding earlier. All values must be valid CSS.
- */
-function mergeLabelStyle (
-  ...styles: (React.CSSProperties | undefined)[]
-): React.CSSProperties {
-  return Object.assign({}, ...styles.filter(Boolean))
-}
-
-/**
- * Renders a single color key item: a color swatch (circle, square, 45° line, or custom) and a label.
- */
-const ColorKeyItemComponent = (props: ColorKeyItemComponentProps) => {
-  const {
-    label,
-    defaultSwatchSize,
-    defaultStrokeWidth,
-    defaultStrokeColor,
-    defaultLabelStyle,
-    labelStyle: itemLabelStyle
-  } = props
-  const labelStyle = mergeLabelStyle(
-    DEFAULT_LABEL_STYLE,
-    defaultLabelStyle,
-    itemLabelStyle
-  )
-  return (
-    <Container>
-      <span aria-hidden='true'>
-        {renderSwatch(props, {
-          defaultSwatchSize,
-          defaultStrokeWidth,
-          defaultStrokeColor
-        })}
-      </span>
-      <Label style={labelStyle}>{label}</Label>
-    </Container>
-  )
-}
-
-interface GradientDefaults {
-  maxWidth?: number
-  height?: number
-  barLabels?: [ReactNode, ReactNode]
-  barLabelsStyle?: React.CSSProperties
-  borderRadius?: number
-  labelStyle?: React.CSSProperties
-}
-
-interface RenderGroupDefaults {
-  columns?: number
-  swatchSize?: number
-  strokeWidth?: number
-  strokeColor?: string
-  itemSpace?: number
-  itemRowSpace?: number
-  labelStyle?: React.CSSProperties
-  groupTitleStyle?: React.CSSProperties
-  gradient?: GradientDefaults
-}
-
-/**
- * Renders a single group of items with optional title. Renders gradient or swatches based on group.gradient.
- */
-function renderGroup (
-  group: ColorKeyGroup,
-  defaults: RenderGroupDefaults,
-  key: number
-) {
-  const groupTitleStyle = mergeLabelStyle(
-    DEFAULT_GROUP_TITLE_STYLE,
-    defaults.groupTitleStyle,
-    group.groupTitleStyle
-  )
-
-  if (group.gradient && group.items?.length) {
-    const gradientContent = renderGradientKey(
-      group.items.filter(isGradientItem),
-      {
-        labelStyle: group.labelStyle ?? defaults.gradient?.labelStyle,
-        barLabelsStyle:
-          group.barLabelsStyle ?? defaults.gradient?.barLabelsStyle,
-        maxWidth: group.maxWidth ?? defaults.gradient?.maxWidth,
-        height: group.height ?? defaults.gradient?.height,
-        barLabels: group.barLabels ?? defaults.gradient?.barLabels,
-        borderRadius: group.borderRadius ?? defaults.gradient?.borderRadius
-      }
-    )
-    return (
-      <GroupWrapper key={key}>
-        {group.title && (
-          <GroupTitle style={groupTitleStyle}>{group.title}</GroupTitle>
-        )}
-        {gradientContent}
-      </GroupWrapper>
-    )
-  }
-
-  if (group.discreteScale && group.items?.length) {
-    const discreteItems = group.items.filter(isDiscreteScaleItem)
-    const discreteContent = renderDiscreteScaleKey(discreteItems, {
-      labelStyle: group.labelStyle ?? defaults.gradient?.labelStyle,
-      barLabelsStyle: group.barLabelsStyle ?? defaults.gradient?.barLabelsStyle,
-      maxWidth: group.maxWidth ?? defaults.gradient?.maxWidth,
-      height: group.height ?? defaults.gradient?.height,
-      barLabels: group.barLabels ?? defaults.gradient?.barLabels,
-      borderRadius: group.borderRadius ?? defaults.gradient?.borderRadius
-    })
-    return (
-      <GroupWrapper key={key}>
-        {group.title && (
-          <GroupTitle style={groupTitleStyle}>{group.title}</GroupTitle>
-        )}
-        {discreteContent}
-      </GroupWrapper>
-    )
-  }
-
-  const columns = group.columns ?? defaults.columns
-  const swatchSize = group.swatchSize ?? defaults.swatchSize
-  const strokeWidth = group.strokeWidth ?? defaults.strokeWidth
-  const strokeColor = group.strokeColor ?? defaults.strokeColor
-  const itemSpace = group.itemSpace ?? defaults.itemSpace ?? DEFAULT_ITEM_SPACE
-  const itemRowSpace =
-    group.itemRowSpace ?? defaults.itemRowSpace ?? DEFAULT_ITEM_ROW_SPACE
-  const labelStyle = mergeLabelStyle(defaults.labelStyle, group.labelStyle)
-
-  return (
-    <GroupWrapper key={key}>
-      {group.title && (
-        <GroupTitle style={groupTitleStyle}>{group.title}</GroupTitle>
-      )}
-      <ItemsContainer
-        $columns={columns}
-        $itemSpace={itemSpace}
-        $itemRowSpace={itemRowSpace}
-      >
-        {(group.items as ColorKeyItem[]).map((item, i) => (
-          <ColorKeyItemComponent
-            key={i}
-            {...item}
-            defaultSwatchSize={swatchSize}
-            defaultStrokeWidth={strokeWidth}
-            defaultStrokeColor={strokeColor}
-            defaultLabelStyle={labelStyle}
-          />
-        ))}
-      </ItemsContainer>
-    </GroupWrapper>
-  )
-}
-
-/**
- * Normalizes gradient values to 0-100 range for CSS stops.
- */
-function normalizeGradientStops (
-  items: ColorKeyGradientItem[]
-): Array<{ color: string; percent: number; label: ReactNode }> {
-  const sorted = [...items].sort((a, b) => a.value - b.value)
-  const min = sorted[0]?.value ?? 0
-  const max = sorted[sorted.length - 1]?.value ?? 100
-  const range = max - min || 1
-  return sorted.map(item => ({
-    color: item.color,
-    percent: ((item.value - min) / range) * 100,
-    label: item.label
-  }))
-}
-
-/**
- * Renders a gradient color key bar with labels.
- */
-function renderGradientKey (
-  items: ColorKeyGradientItem[],
-  options?: {
-    labelStyle?: React.CSSProperties
-    barLabelsStyle?: React.CSSProperties
-    maxWidth?: number
-    height?: number
-    barLabels?: [ReactNode, ReactNode]
-    borderRadius?: number
-  }
-) {
-  const stops = normalizeGradientStops(items)
-  const gradientCss = stops.map(s => `${s.color} ${s.percent}%`).join(', ')
-  const mergedLabelStyle = mergeLabelStyle(
-    DEFAULT_LABEL_STYLE,
-    options?.labelStyle
-  )
-  const mergedBarLabelsStyle = mergeLabelStyle(
-    DEFAULT_BAR_LABELS_STYLE,
-    options?.barLabelsStyle
-  )
-  const barLabels = options?.barLabels
-  return (
-    <GradientContainer $maxWidth={options?.maxWidth}>
-      {barLabels && (
-        <GradientBarLabels>
-          <Label style={mergedBarLabelsStyle}>{barLabels[0]}</Label>
-          <Label style={mergedBarLabelsStyle}>{barLabels[1]}</Label>
-        </GradientBarLabels>
-      )}
-      <GradientBar
-        $gradient={gradientCss}
-        $height={options?.height}
-        $borderRadius={options?.borderRadius}
-      />
-      <GradientLabels $columns={stops.length}>
-        {stops.map((stop, i) => (
-          <GradientLabelCell
-            key={i}
-            $align={
-              i === 0 ? 'start' : i === stops.length - 1 ? 'end' : 'center'
-            }
-          >
-            <Label style={mergedLabelStyle}>{stop.label}</Label>
-          </GradientLabelCell>
-        ))}
-      </GradientLabels>
-    </GradientContainer>
-  )
-}
-
-/**
- * Renders a discrete color scale: adjacent swatches with no gap, min/max labels.
- */
-function renderDiscreteScaleKey (
-  items: ColorKeyDiscreteScaleItem[],
-  options?: {
-    labelStyle?: React.CSSProperties
-    barLabelsStyle?: React.CSSProperties
-    maxWidth?: number
-    height?: number
-    barLabels?: [ReactNode, ReactNode]
-    borderRadius?: number
-  }
-) {
-  const mergedLabelStyle = mergeLabelStyle(
-    DEFAULT_LABEL_STYLE,
-    options?.labelStyle
-  )
-  const mergedBarLabelsStyle = mergeLabelStyle(
-    DEFAULT_BAR_LABELS_STYLE,
-    options?.barLabelsStyle
-  )
-  const barLabels = options?.barLabels
-  const hasLabels = items.some(item => item.label)
-  return (
-    <GradientContainer $maxWidth={options?.maxWidth}>
-      {barLabels && (
-        <GradientBarLabels>
-          <Label style={mergedBarLabelsStyle}>{barLabels[0]}</Label>
-          <Label style={mergedBarLabelsStyle}>{barLabels[1]}</Label>
-        </GradientBarLabels>
-      )}
-      <DiscreteScaleBar
-        $height={options?.height}
-        $borderRadius={options?.borderRadius}
-      >
-        {items.map((item, i) => (
-          <DiscreteScaleSegment key={i} $color={item.color} />
-        ))}
-      </DiscreteScaleBar>
-      {hasLabels && (
-        <GradientLabels $columns={items.length}>
-          {items.map((item, i) => (
-            <GradientLabelCell key={i} $align='center'>
-              <Label style={mergedLabelStyle}>{item.label}</Label>
-            </GradientLabelCell>
-          ))}
-        </GradientLabels>
-      )}
-    </GradientContainer>
-  )
-}
-
-/**
- * Renders color key item(s). Accepts single item, items array (flat or groups), or gradient mode.
- * Detects groups by checking if first element has an items array.
- */
-const ColorKey = (props: ColorKeyProps) => {
-  const { isMobile } = useMFContext()
-
-  if ('gradient' in props && props.gradient && props.items?.length) {
-    const content = renderGradientKey(props.items, {
-      labelStyle: props.labelStyle,
-      barLabelsStyle: props.barLabelsStyle,
-      maxWidth: props.maxWidth,
-      height: props.height,
-      barLabels: props.barLabels,
-      borderRadius: props.borderRadius
-    })
-    return withColorKeyTitle(content, props.title, props.titleStyle)
-  }
-
-  if ('discreteScale' in props && props.discreteScale && props.items?.length) {
-    const discreteProps = props as DiscreteScaleProps
-    const content = renderDiscreteScaleKey(discreteProps.items, {
-      labelStyle: discreteProps.labelStyle,
-      barLabelsStyle: discreteProps.barLabelsStyle,
-      maxWidth: discreteProps.maxWidth,
-      height: discreteProps.height,
-      barLabels: discreteProps.barLabels,
-      borderRadius: discreteProps.borderRadius
-    })
-    return withColorKeyTitle(
-      content,
-      discreteProps.title,
-      discreteProps.titleStyle
-    )
-  }
-
-  if ('items' in props && props.items?.length) {
-    const p = props as SwatchGroupProps
-    const groupColumns = p.columns ?? 1
-    const defaultItemColumns = p.itemColumns ?? (isMobile ? 2 : undefined)
-    const groupDefaults: RenderGroupDefaults = {
-      columns: defaultItemColumns,
-      swatchSize: p.swatchSize,
-      strokeWidth: p.strokeWidth,
-      strokeColor: p.strokeColor,
-      itemSpace: p.itemSpace,
-      itemRowSpace: p.itemRowSpace,
-      labelStyle: p.labelStyle,
-      groupTitleStyle: p.groupTitleStyle,
-      gradient: {
-        maxWidth: p.maxWidth,
-        height: p.height,
-        barLabels: p.barLabels,
-        barLabelsStyle: p.barLabelsStyle,
-        borderRadius: p.borderRadius,
-        labelStyle: p.labelStyle
-      }
-    }
-
-    if (isGroup(p.items[0])) {
-      const groups = p.items as ColorKeyGroup[]
-      const content = (
-        <GroupsContainer
-          $columns={groupColumns}
-          $groupGap={p.groupGap ?? p.groupSpacing ?? DEFAULT_GROUP_SPACING}
-        >
-          {groups.map((group, i) => renderGroup(group, groupDefaults, i))}
-        </GroupsContainer>
-      )
-      return withColorKeyTitle(content, p.title, p.titleStyle)
-    }
-
-    const items = p.items as ColorKeyItem[]
-    const itemSpace = p.itemSpace ?? DEFAULT_ITEM_SPACE
-    const itemRowSpace = p.itemRowSpace ?? DEFAULT_ITEM_ROW_SPACE
-    const content = (
-      <ItemsContainer
-        $columns={defaultItemColumns}
-        $itemSpace={itemSpace}
-        $itemRowSpace={itemRowSpace}
-      >
-        {items.map((item, i) => (
-          <ColorKeyItemComponent
-            key={i}
-            {...item}
-            defaultSwatchSize={p.swatchSize}
-            defaultStrokeWidth={p.strokeWidth}
-            defaultStrokeColor={p.strokeColor}
-            defaultLabelStyle={p.labelStyle}
-          />
-        ))}
-      </ItemsContainer>
-    )
-    return withColorKeyTitle(content, p.title, p.titleStyle)
-  }
-
-  if (!('items' in props)) {
-    return (
-      <ColorKeyItemComponent
-        {...props}
-        defaultSwatchSize={undefined}
-        defaultStrokeWidth={undefined}
-        defaultStrokeColor={undefined}
-        defaultLabelStyle={undefined}
-      />
-    )
-  }
-
-  return null
-}
-
-interface GroupsContainerProps {
-  $columns?: number
-  $groupGap?: number
-}
-
-const GroupsContainer = styled.div<GroupsContainerProps>`
-  display: ${props =>
-    props.$columns !== undefined && props.$columns > 1 ? 'grid' : 'flex'};
-  flex-direction: column;
-  grid-template-columns: ${props =>
-    props.$columns !== undefined && props.$columns > 1
-      ? `repeat(${props.$columns}, 1fr)`
-      : 'unset'};
-  gap: ${props => props.$groupGap ?? DEFAULT_GROUP_SPACING}px;
-`
-
-const GroupWrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 0px;
-`
-
-const GroupTitle = styled.span``
-
-interface ItemsContainerProps {
-  $columns?: number
-  $itemSpace?: number
-  $itemRowSpace?: number
-}
-
-const ItemsContainer = styled.div<ItemsContainerProps>`
-  display: ${props => (props.$columns !== undefined ? 'grid' : 'flex')};
-  flex-wrap: ${props => (props.$columns === undefined ? 'wrap' : 'unset')};
-  grid-template-columns: ${props =>
-    props.$columns !== undefined ? `repeat(${props.$columns}, 1fr)` : 'unset'};
-  column-gap: ${props => props.$itemSpace ?? DEFAULT_ITEM_SPACE}px;
-  row-gap: ${props => props.$itemRowSpace ?? DEFAULT_ITEM_ROW_SPACE}px;
-  align-items: center;
-`
-
-const GradientContainer = styled.div<{ $maxWidth?: number }>`
+const BarContainer = styled.div<{ $maxWidth?: number }>`
   display: flex;
   flex-direction: column;
   gap: 0px;
   max-width: ${props => (props.$maxWidth ? `${props.$maxWidth}px` : 'none')};
 `
 
-const GradientBarLabels = styled.div`
+const EndLabels = styled.div`
   display: flex;
   justify-content: space-between;
   line-height: 1em;
@@ -733,41 +593,53 @@ const GradientBarLabels = styled.div`
 
 const GradientBar = styled.div<{
   $gradient: string
-  $height?: number
-  $borderRadius?: number
+  $height: number
+  $borderRadius: number
 }>`
-  height: ${props => props.$height ?? DEFAULT_BAR_HEIGHT}px;
-  border-radius: ${props =>
-    props.$borderRadius ?? DEFAULT_GRADIENT_BAR_BORDER_RADIUS}px;
+  height: ${props => props.$height}px;
+  border-radius: ${props => props.$borderRadius}px;
   background: linear-gradient(to right, ${props => props.$gradient});
 `
 
-const DiscreteScaleBar = styled.div<{
-  $height?: number
-  $borderRadius?: number
-}>`
+const StepsBar = styled.div<{ $height: number; $borderRadius: number }>`
   display: flex;
-  height: ${props => props.$height ?? DEFAULT_BAR_HEIGHT}px;
-  border-radius: ${props =>
-    props.$borderRadius ?? DEFAULT_GRADIENT_BAR_BORDER_RADIUS}px;
+  height: ${props => props.$height}px;
+  border-radius: ${props => props.$borderRadius}px;
   overflow: hidden;
 `
 
-const DiscreteScaleSegment = styled.div<{ $color: string }>`
+const StepSegment = styled.div<{ $color: string }>`
   flex: 1;
   background-color: ${props => props.$color};
 `
 
-const GradientLabels = styled.div<{ $columns: number }>`
+const StepLabels = styled.div<{ $columns: number }>`
   display: grid;
   grid-template-columns: ${props => `repeat(${props.$columns}, 1fr)`};
   column-gap: 4px;
+  text-align: center;
 `
 
-const GradientLabelCell = styled.div<{ $align: 'start' | 'center' | 'end' }>`
-  text-align: ${props => props.$align};
-  align-self: start;
-  line-height: 1em;
+/** Holds the absolutely positioned gradient labels, which sit at their stop's percentage. */
+const PositionedLabels = styled.div`
+  position: relative;
+`
+
+/** Invisible single line of text that gives PositionedLabels its height. */
+const LabelSpacer = styled.span`
+  visibility: hidden;
+  white-space: nowrap;
+`
+
+const PositionedLabel = styled.span<{ $percent: number }>`
+  position: absolute;
+  top: 0;
+  left: ${props => props.$percent}%;
+  white-space: nowrap;
+  transform: translateX(
+    ${props =>
+      props.$percent <= 0 ? '0%' : props.$percent >= 100 ? '-100%' : '-50%'}
+  );
 `
 
 export default ColorKey

@@ -93,7 +93,10 @@ class HomeControl implements mapboxgl.IControl {
     button.addEventListener('click', this.onClick)
 
     if (this.icon) {
-      button.innerHTML = `<img src="${this.icon}" style="width:20px;height:20px;padding-top:4px;" />`
+      const img = document.createElement('img')
+      img.src = this.icon
+      img.style.cssText = 'width:20px;height:20px;padding-top:4px;'
+      button.appendChild(img)
     } else {
       button.innerHTML = `<svg viewBox="0 0 19 19" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 10L10 3l7 7M5 8.5V16h3.5v-4h3v4H15V8.5"/></svg>`
     }

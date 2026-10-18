@@ -94,7 +94,11 @@ export const MapboxMap = ({
   height?: number | string
   disabledFeatures?: DisabledFeature[]
 }) => {
-  mapboxgl.accessToken = accessToken ?? 'pk.eyJ1IjoidGEtaW50ZXJha3RpdiIsImEiOiJjaXNhNGFsdHAwMDB2Mm9wNWdlMTlqMTNuIn0.uj5aGvF3yvEM4V6kNdlbVg'
+  if (!accessToken) {
+    console.error('MapboxMap: accessToken prop is required')
+    return null
+  }
+  mapboxgl.accessToken = accessToken
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | undefined>()
   const [mapReady, setMapReady] = useState(false)

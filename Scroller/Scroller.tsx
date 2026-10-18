@@ -36,7 +36,7 @@ export const Scroller = ({
     front[currentIndex].props?.id
 
   return (
-    <StyledScroller className={'Scroller ' + className} id='scroller'>
+    <StyledScroller className={'Scroller' + (className ? ' ' + className : '')} id='scroller'>
       <div className='back' id='back'>
         {back(currentIndex, currentID)}
       </div>
@@ -54,13 +54,12 @@ export const Scroller = ({
             <React.Fragment key={'Front_' + i}>
               <Spacer style={{ minHeight: dtop + 'px' }} />
               <Waypoint
-                scrollableAncestor={window}
                 onEnter={() => setCurrentIndex(i)}
                 onLeave={e => {
                   const newindex = i + (e.currentPosition === 'below' ? -1 : 1)
                   setCurrentIndex(
-                    newindex > front.length
-                      ? front.length
+                    newindex >= front.length
+                      ? front.length - 1
                       : newindex < 0
                       ? 0
                       : newindex

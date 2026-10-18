@@ -2,7 +2,7 @@ import { scaleLinear, extent } from 'd3'
 import { useMemo, useRef } from 'react'
 import styled from 'styled-components'
 import { useResizeObserver } from 'usehooks-ts'
-import { DrawMultiple, useTicks, WrapInGroup } from './ChartHelpers'
+import { DrawMultiple, useTicks, WrapInGroup } from '../ChartHelpers'
 
 const X_Ticks = DrawMultiple('x-ticks')
 const Y_Ticks = DrawMultiple('y-ticks')
@@ -74,7 +74,7 @@ const BaseSVGChart = ({
   const xTicks = useTicks({ min: xDomain[0], max: xDomain[1], step: xStep })
   const columnWidth = (plotArea.right - plotArea.left) / 8 - 1
   return (
-    <ChartContainer ref={ref} $svgHeight={svgHeight}>aaaaa
+    <ChartContainer ref={ref} $svgHeight={svgHeight}>
       <ChartSVG>
         <defs>
           <marker
@@ -122,8 +122,8 @@ const BaseSVGChart = ({
                 x2={plotArea.left}
                 y2={plotArea.top - 50}
                 stroke='var(--gray-2)'
-                stroke-width='1.5'
-                marker-end='url(#arrow)'
+                strokeWidth='1.5'
+                markerEnd='url(#arrow)'
               />
               <AxisLabel
                 x={plotArea.left + 15}

@@ -1,5 +1,5 @@
 import { useMFContext } from "components/MFHelpers"
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { useWindowSize } from "usehooks-ts"
 import {
@@ -25,36 +25,17 @@ const InjectIntoHeader = ({
 }) => {
   const { width } = useWindowSize()
   const { colorMode } = useMFContext()
-  const [headerimage, setHeaderimage] = useState<string>(
-    colorMode === "dark" ? dm_desktop : desktop
-  )
-  const [isMobile, setIsMobile] = useState<boolean>(false)
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(false)
-
-  useEffect(() => {
-    const newIsMobile = width < 768
-    const newIsDarkMode = colorMode === "dark"
-
-    let newHeaderImage: string
-    if (newIsDarkMode) {
-      newHeaderImage = newIsMobile ? dm_mobile : dm_desktop
-    } else {
-      newHeaderImage = newIsMobile ? mobile : desktop
-    }
-
-    // Only update if breakpoint or color mode actually changed
-    if (newIsMobile !== isMobile || newIsDarkMode !== isDarkMode) {
-      setIsMobile(newIsMobile)
-      setIsDarkMode(newIsDarkMode)
-      setHeaderimage(newHeaderImage)
-    }
-  }, [width, colorMode, mobile, desktop, dm_mobile, dm_desktop])
+  const isMobile = width < 768
+  const isDarkMode = colorMode === "dark"
+  const headerimage = isDarkMode
+    ? (isMobile ? dm_mobile : dm_desktop)
+    : (isMobile ? mobile : desktop)
 
   return (
     <Injector
       content={
         <img
-          src={headerimage + "?v=" + new Date().getTime()}
+          src={headerimage}
           style={imageStyles}
         />
       }

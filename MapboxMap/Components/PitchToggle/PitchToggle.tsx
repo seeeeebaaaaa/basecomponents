@@ -2,8 +2,8 @@ import { MapContext } from 'components/MapboxMap/Mapbox'
 import { CTRLPositions } from '../../Types/mapboxtypes'
 import { useContext, useEffect, useState } from 'react'
 import styled from 'styled-components'
-import FullScreen from './FullScreen'
-import ExitFullScreen from './ExitFullScreen'
+import FullScreen from '../Icons/FullScreen'
+import ExitFullScreen from '../Icons/ExitFullScreen'
 import { CustomControl } from '../Utils/CreateCustomControl'
 
 /** Adds a pitch toggle (fullscreen-style) control to the map. */

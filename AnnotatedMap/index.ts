@@ -1,1 +1,2 @@
-export {default} from './AnnotatedMap';
+export * from './AnnotatedMap'
+export { default } from './AnnotatedMap'

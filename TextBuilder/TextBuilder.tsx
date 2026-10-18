@@ -33,7 +33,7 @@ export class TextBuilder {
     let str = this.decimalPlaces !== undefined
       ? value.toFixed(this.decimalPlaces)
       : String(value)
-    if (!this.trailingZeros) str = str.replace(/\.?0+$/, '')
+    if (!this.trailingZeros) str = str.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '')
     return str.replace('.', this.decimalSeparator)
   }
 

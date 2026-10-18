@@ -1,10 +1,9 @@
 import React from 'react'
-import styled from 'styled-components'
 import ColorKey, {
-  type ColorKeyDiscreteScaleItem,
-  type ColorKeyGroup,
-  type ColorKeyGradientItem,
-  type ColorKeyItem
+  type ColorKeySection,
+  type ColorKeyStep,
+  type ColorKeyStop,
+  type ColorKeySwatch
 } from './ColorKey'
 
 const CUSTOM_SWATCH = (
@@ -21,42 +20,34 @@ const CUSTOM_SWATCH = (
   </span>
 )
 
-const SHOWCASE_ITEMS: ColorKeyGroup[] = [
-  {
-    title: 'Showcase Items',
-    items: [
-      { color: '#e74c3c', label: 'Circle', type: 'circle' },
-      { color: '#3498db', label: 'Square', type: 'square' },
-      { color: '#2ecc71', label: '45° Line', type: 'line' },
-      { label: 'Custom', type: 'custom', customSwatch: CUSTOM_SWATCH }
-    ]
-  }
+const SHOWCASE_SWATCHES: ColorKeySwatch[] = [
+  { color: '#e74c3c', label: 'Circle' },
+  { color: '#3498db', label: 'Square', shape: 'square' },
+  { color: '#2ecc71', label: '45° Line', shape: 'line' },
+  { label: 'Custom', swatch: CUSTOM_SWATCH }
 ]
 
-const SHOWCASE_ITEMS_MIXED_SIZE: ColorKeyItem[] = [
-  { color: '#e74c3c', label: 'Small', type: 'circle', swatchSize: 10 },
-  { color: '#3498db', label: 'Default', type: 'circle' },
-  { color: '#2ecc71', label: 'Large', type: 'circle', swatchSize: 24 }
+const SHOWCASE_SWATCHES_MIXED_SIZE: ColorKeySwatch[] = [
+  { color: '#e74c3c', label: 'Small', size: 10 },
+  { color: '#3498db', label: 'Default' },
+  { color: '#2ecc71', label: 'Large', size: 24 }
 ]
 
-const SHOWCASE_ITEMS_OUTLINE: ColorKeyItem[] = [
+const SHOWCASE_SWATCHES_OUTLINE: ColorKeySwatch[] = [
   {
     color: '#e74c3c',
     label: 'Circle outline',
-    type: 'circle',
-    strokeWidth: 2,
-    strokeColor: '#333'
+    stroke: { width: 2, color: '#333' }
   },
   {
     color: '#3498db',
     label: 'Square outline',
-    type: 'square',
-    strokeWidth: 1,
-    strokeColor: '#000'
+    shape: 'square',
+    stroke: { width: 1, color: '#000' }
   }
 ]
 
-const SHOWCASE_GRADIENT_ITEMS: ColorKeyGradientItem[] = [
+const SHOWCASE_STOPS: ColorKeyStop[] = [
   { color: '#e74c3c', value: 0, label: 'Low' },
   { color: '#f39c12', value: 25 },
   { color: '#2ecc71', value: 50, label: 'Mid' },
@@ -64,7 +55,23 @@ const SHOWCASE_GRADIENT_ITEMS: ColorKeyGradientItem[] = [
   { color: '#9b59b6', value: 100, label: 'High' }
 ]
 
-const SHOWCASE_DISCRETE_SCALE: ColorKeyDiscreteScaleItem[] = [
+/** Stops that are not evenly spaced. Labels must line up with their own color. */
+const SHOWCASE_STOPS_UNEVEN: ColorKeyStop[] = [
+  { color: '#e74c3c', value: 0, label: '0' },
+  { color: '#f39c12', value: 10, label: '10' },
+  { color: '#2ecc71', value: 80, label: '80' },
+  { color: '#9b59b6', value: 100, label: '100' }
+]
+
+/** Stops without values, spread evenly. */
+const SHOWCASE_STOPS_UNVALUED: ColorKeyStop[] = [
+  { color: '#e74c3c' },
+  { color: '#f39c12' },
+  { color: '#2ecc71' },
+  { color: '#3498db' }
+]
+
+const SHOWCASE_STEPS: ColorKeyStep[] = [
   { color: '#e74c3c' },
   { color: '#f39c12' },
   { color: '#2ecc71' },
@@ -72,7 +79,7 @@ const SHOWCASE_DISCRETE_SCALE: ColorKeyDiscreteScaleItem[] = [
   { color: '#9b59b6' }
 ]
 
-const SHOWCASE_DISCRETE_SCALE_WITH_LABELS: ColorKeyDiscreteScaleItem[] = [
+const SHOWCASE_STEPS_WITH_LABELS: ColorKeyStep[] = [
   { color: '#e74c3c', label: 'Low' },
   { color: '#f39c12' },
   { color: '#2ecc71', label: 'Mid' },
@@ -80,300 +87,302 @@ const SHOWCASE_DISCRETE_SCALE_WITH_LABELS: ColorKeyDiscreteScaleItem[] = [
   { color: '#9b59b6', label: 'High' }
 ]
 
-const SHOWCASE_GROUPS: ColorKeyGroup[] = [
+const SHOWCASE_ANIMALS: ColorKeySwatch[] = [
+  { color: '#e74c3c', label: 'Aligator' },
+  { color: '#3498db', label: 'Brocolli' },
+  { color: '#2ecc71', label: 'Chameleon' },
+  { color: '#9b59b6', label: 'Duck' },
+  { color: '#f39c12', label: 'Elephant' },
+  { color: '#e74c3c', label: 'Fox' },
+  { color: '#3498db', label: 'Giraffe' },
+  { color: '#2ecc71', label: 'Hippo' }
+]
+
+const SHOWCASE_SECTIONS: ColorKeySection[] = [
   {
+    type: 'swatches',
     title: 'Group A',
-    items: [
-      { color: '#e74c3c', label: 'Circle', type: 'circle' },
-      { color: '#3498db', label: 'Square', type: 'square' }
+    swatches: [
+      { color: '#e74c3c', label: 'Circle' },
+      { color: '#3498db', label: 'Square', shape: 'square' }
     ]
   },
   {
+    type: 'swatches',
     title: 'Group B',
     columns: 3,
-    items: [
-      {
-        color: 'none',
-        label: 'Line',
-        type: 'circle',
-        strokeWidth: 2,
-        strokeColor: '#000'
-      },
-      { label: 'Custom', type: 'custom', customSwatch: CUSTOM_SWATCH },
-      {
-        color: 'none',
-        label: 'Line',
-        type: 'circle',
-        strokeWidth: 2,
-        strokeColor: '#000'
-      },
-      { label: 'Custom', type: 'custom', customSwatch: CUSTOM_SWATCH },
-      {
-        color: 'none',
-        label: 'Line',
-        type: 'circle',
-        strokeWidth: 2,
-        strokeColor: '#000'
-      },
-      { label: 'Custom', type: 'custom', customSwatch: CUSTOM_SWATCH }
+    swatches: [
+      { color: 'none', label: 'Line', stroke: { width: 2, color: '#000' } },
+      { label: 'Custom', swatch: CUSTOM_SWATCH },
+      { color: 'none', label: 'Line', stroke: { width: 2, color: '#000' } },
+      { label: 'Custom', swatch: CUSTOM_SWATCH },
+      { color: 'none', label: 'Line', stroke: { width: 2, color: '#000' } },
+      { label: 'Custom', swatch: CUSTOM_SWATCH }
     ]
   }
 ]
 
-/**
- * Wrapper that renders all swatch type possibilities of ColorKey.
- */
-export const ColorKeyShowcase = () => (
-  <ShowcaseContainer>
-    <ShowcaseSection>
-      <ShowcaseTitle>Gradient</ShowcaseTitle>
-      <ColorKey gradient items={SHOWCASE_GRADIENT_ITEMS} />
-    </ShowcaseSection>
-    <ShowcaseSection>
-      <ShowcaseTitle>Gradient (maxWidth, height, barLabels)</ShowcaseTitle>
+/** Every section type and layout option of ColorKey, one labelled variant each. */
+export const showcaseVariants = [
+  {
+    title: 'Gradient',
+    element: <ColorKey sections={{ type: 'gradient', stops: SHOWCASE_STOPS }} />
+  },
+  {
+    title: 'Gradient (bar width, height, endLabels)',
+    element: (
       <ColorKey
-        gradient
-        items={SHOWCASE_GRADIENT_ITEMS}
-        maxWidth={300}
-        height={20}
-        barLabels={['Min', 'Max']}
+        sections={{
+          type: 'gradient',
+          stops: SHOWCASE_STOPS,
+          endLabels: ['Min', 'Max'],
+          bar: { width: 300, height: 20 }
+        }}
       />
-    </ShowcaseSection>
-    <ShowcaseSection>
-      <ShowcaseTitle>Discrete scale</ShowcaseTitle>
+    )
+  },
+  {
+    title: 'Gradient with unevenly spaced stops',
+    element: (
       <ColorKey
-        discreteScale
-        items={SHOWCASE_DISCRETE_SCALE}
-        barLabels={['Low', 'High']}
+        sections={{
+          type: 'gradient',
+          stops: SHOWCASE_STOPS_UNEVEN,
+          bar: { width: 300 }
+        }}
       />
-    </ShowcaseSection>
-    <ShowcaseSection>
-      <ShowcaseTitle>Discrete scale (maxWidth, height)</ShowcaseTitle>
+    )
+  },
+  {
+    title: 'Gradient with explicit domain (0 - 200)',
+    element: (
       <ColorKey
-        discreteScale
-        items={SHOWCASE_DISCRETE_SCALE}
-        maxWidth={200}
-        height={16}
-        barLabels={['Min', 'Max']}
+        sections={{
+          type: 'gradient',
+          stops: SHOWCASE_STOPS_UNEVEN,
+          domain: [0, 200],
+          endLabels: ['0', '200'],
+          bar: { width: 300 }
+        }}
       />
-    </ShowcaseSection>
-    <ShowcaseSection>
-      <ShowcaseTitle>Discrete scale with labels below</ShowcaseTitle>
+    )
+  },
+  {
+    title: 'Gradient without values (spread evenly)',
+    element: (
       <ColorKey
-        discreteScale
-        items={SHOWCASE_DISCRETE_SCALE_WITH_LABELS}
-        maxWidth={200}
-        barLabels={['Min', 'Max']}
+        sections={{
+          type: 'gradient',
+          stops: SHOWCASE_STOPS_UNVALUED,
+          bar: { width: 300 }
+        }}
       />
-    </ShowcaseSection>
-    <ShowcaseSection>
+    )
+  },
+  {
+    title: 'Steps',
+    element: (
       <ColorKey
+        sections={{
+          type: 'steps',
+          steps: SHOWCASE_STEPS,
+          endLabels: ['Low', 'High']
+        }}
+      />
+    )
+  },
+  {
+    title: 'Steps (bar width, height)',
+    element: (
+      <ColorKey
+        sections={{
+          type: 'steps',
+          steps: SHOWCASE_STEPS,
+          endLabels: ['Min', 'Max'],
+          bar: { width: 200, height: 16 }
+        }}
+      />
+    )
+  },
+  {
+    title: 'Steps with labels below',
+    element: (
+      <ColorKey
+        sections={{
+          type: 'steps',
+          steps: SHOWCASE_STEPS_WITH_LABELS,
+          endLabels: ['Min', 'Max'],
+          bar: { width: 200 }
+        }}
+      />
+    )
+  },
+  {
+    element: (
+      <ColorKey
+        title='Mixed Gradient, Steps and Categories'
         columns={2}
-        groupGap={30}
-        title='Mixed Gradient, Discrete Scale and Categories'
-        items={[
+        gap={30}
+        sections={[
           {
+            type: 'gradient',
             title: 'Gradient',
-            gradient: true,
-            items: SHOWCASE_GRADIENT_ITEMS,
-            barLabels: ['Low', 'High']
+            stops: SHOWCASE_STOPS,
+            endLabels: ['Low', 'High']
           },
           {
-            title: 'Discrete scale',
-            discreteScale: true,
-            items: SHOWCASE_DISCRETE_SCALE_WITH_LABELS,
-            barLabels: ['Min', 'Max']
+            type: 'steps',
+            title: 'Steps',
+            steps: SHOWCASE_STEPS_WITH_LABELS,
+            endLabels: ['Min', 'Max']
           },
+          { type: 'swatches', title: 'Categories', swatches: SHOWCASE_ANIMALS },
           {
-            title: 'Categories',
-            items: [
-              { color: '#e74c3c', label: 'Aligator', type: 'circle' },
-              { color: '#3498db', label: 'Brocolli', type: 'circle' },
-              { color: '#2ecc71', label: 'Chameleon', type: 'circle' },
-              { color: '#9b59b6', label: 'Duck', type: 'circle' },
-              { color: '#f39c12', label: 'Elephant', type: 'circle' },
-              { color: '#e74c3c', label: 'Fox', type: 'circle' },
-              { color: '#3498db', label: 'Giraffe', type: 'circle' },
-              { color: '#2ecc71', label: 'Hippo', type: 'circle' }
-            ]
-          },
-          {
+            type: 'swatches',
             title: 'Categories',
             columns: 2,
-            items: [
-              { color: '#e74c3c', label: 'Aligator', type: 'circle' },
-              { color: '#3498db', label: 'Brocolli', type: 'circle' },
-              { color: '#2ecc71', label: 'Chameleon', type: 'circle' },
-              { color: '#9b59b6', label: 'Duck', type: 'circle' },
-              { color: '#f39c12', label: 'Elephant', type: 'circle' },
-              { color: '#e74c3c', label: 'Fox', type: 'circle' },
-              { color: '#3498db', label: 'Giraffe', type: 'circle' },
-              { color: '#2ecc71', label: 'Hippo', type: 'circle' }
-            ]
+            swatches: SHOWCASE_ANIMALS
           },
           {
+            type: 'gradient',
             title: 'Gradient',
-            gradient: true,
-            items: SHOWCASE_GRADIENT_ITEMS,
-            barLabels: ['Low', 'High']
+            stops: SHOWCASE_STOPS,
+            endLabels: ['Low', 'High']
           }
         ]}
       />
-    </ShowcaseSection>
-    <ShowcaseSection>
-      <ColorKey items={SHOWCASE_ITEMS} />
-    </ShowcaseSection>
-    <ShowcaseSection>
-      <ShowcaseTitle>Grid (2 item columns)</ShowcaseTitle>
-      <ColorKey items={SHOWCASE_ITEMS} itemColumns={2} />
-    </ShowcaseSection>
-    <ShowcaseSection>
-      <ShowcaseTitle>swatchSize (8px)</ShowcaseTitle>
-      <ColorKey items={SHOWCASE_ITEMS} swatchSize={8} />
-    </ShowcaseSection>
-    <ShowcaseSection>
-      <ShowcaseTitle>Per-item swatchSize</ShowcaseTitle>
-      <ColorKey items={SHOWCASE_ITEMS_MIXED_SIZE} />
-    </ShowcaseSection>
-    <ShowcaseSection>
-      <ShowcaseTitle>Outline (strokeWidth + strokeColor)</ShowcaseTitle>
-      <ColorKey items={SHOWCASE_ITEMS_OUTLINE} />
-    </ShowcaseSection>
-    <ShowcaseSection>
-      <ShowcaseTitle>Groups (per-group layout)</ShowcaseTitle>
-      <ColorKey items={SHOWCASE_GROUPS} />
-    </ShowcaseSection>
-    <ShowcaseSection>
-      <ShowcaseTitle>Groups in 2 columns</ShowcaseTitle>
-      <ColorKey items={SHOWCASE_GROUPS} columns={2} />
-    </ShowcaseSection>
-    <ShowcaseSection>
-      <ShowcaseTitle>Groups in 2 columns with groupGap</ShowcaseTitle>
-      <ColorKey items={SHOWCASE_GROUPS} columns={2} groupGap={24} />
-    </ShowcaseSection>
-    <ShowcaseSection>
-      <ShowcaseTitle>Color key with title</ShowcaseTitle>
-      <ColorKey title='Legend' items={SHOWCASE_ITEMS} />
-    </ShowcaseSection>
-    <ShowcaseSection>
-      <ShowcaseTitle>Color key with titleStyle</ShowcaseTitle>
+    )
+  },
+  {
+    title: 'Swatches',
+    element: <ColorKey sections={{ type: 'swatches', swatches: SHOWCASE_SWATCHES }} />
+  },
+  {
+    title: 'Grid (2 columns)',
+    element: (
+      <ColorKey
+        sections={{
+          type: 'swatches',
+          columns: 2,
+          swatches: SHOWCASE_SWATCHES
+        }}
+      />
+    )
+  },
+  {
+    title: 'swatchSize (8px)',
+    element: (
+      <ColorKey
+        sections={{ type: 'swatches', swatches: SHOWCASE_SWATCHES }}
+        defaults={{ swatchSize: 8 }}
+      />
+    )
+  },
+  {
+    title: 'Per-swatch size',
+    element: (
+      <ColorKey
+        sections={{ type: 'swatches', swatches: SHOWCASE_SWATCHES_MIXED_SIZE }}
+      />
+    )
+  },
+  {
+    title: 'Outline (stroke)',
+    element: (
+      <ColorKey
+        sections={{ type: 'swatches', swatches: SHOWCASE_SWATCHES_OUTLINE }}
+      />
+    )
+  },
+  {
+    title: 'Sections (per-section layout)',
+    element: <ColorKey sections={SHOWCASE_SECTIONS} />
+  },
+  {
+    title: 'Sections in 2 columns',
+    element: <ColorKey sections={SHOWCASE_SECTIONS} columns={2} />
+  },
+  {
+    title: 'Sections in 2 columns with gap',
+    element: <ColorKey sections={SHOWCASE_SECTIONS} columns={2} gap={24} />
+  },
+  {
+    title: 'Color key with title',
+    element: (
+      <ColorKey
+        title='Legend'
+        sections={{ type: 'swatches', swatches: SHOWCASE_SWATCHES }}
+      />
+    )
+  },
+  {
+    title: 'Color key with styles.title',
+    element: (
       <ColorKey
         title='Custom Styled Title'
-        titleStyle={{ fontSize: 18, color: '#e74c3c' }}
-        items={SHOWCASE_ITEMS}
+        styles={{ title: { fontSize: 18, color: '#e74c3c' } }}
+        sections={{ type: 'swatches', swatches: SHOWCASE_SWATCHES }}
       />
-    </ShowcaseSection>
-    <ShowcaseSection>
+    )
+  },
+  {
+    title: 'Sections with gap and item gap',
+    element: (
       <ColorKey
-        title='Mixed Gradient and Categories'
-        items={[
-          {
-            title: 'Gradient',
-            gradient: true,
-            items: SHOWCASE_GRADIENT_ITEMS,
-            barLabels: ['Low', 'High']
-          },
-          {
-            title: 'Categories',
-            items: [
-              { color: '#e74c3c', label: 'Aligator', type: 'circle' },
-              { color: '#3498db', label: 'Brocolli', type: 'circle' },
-              { color: '#2ecc71', label: 'Chameleon', type: 'circle' },
-              { color: '#9b59b6', label: 'Duck', type: 'circle' },
-              { color: '#f39c12', label: 'Elephant', type: 'circle' },
-              { color: '#e74c3c', label: 'Fox', type: 'circle' },
-              { color: '#3498db', label: 'Giraffe', type: 'circle' },
-              { color: '#2ecc71', label: 'Hippo', type: 'circle' },
-              { color: '#9b59b6', label: 'Iguana', type: 'circle' },
-              { color: '#f39c12', label: 'Jaguar', type: 'circle' },
-              { color: '#e74c3c', label: 'Kangaroo', type: 'circle' },
-              { color: '#e74c3c', label: 'Aligator', type: 'circle' },
-              { color: '#3498db', label: 'Brocolli', type: 'circle' },
-              { color: '#2ecc71', label: 'Chameleon', type: 'circle' },
-              { color: '#9b59b6', label: 'Duck', type: 'circle' },
-              { color: '#f39c12', label: 'Elephant', type: 'circle' },
-              { color: '#e74c3c', label: 'Fox', type: 'circle' },
-              { color: '#3498db', label: 'Giraffe', type: 'circle' },
-              { color: '#2ecc71', label: 'Hippo', type: 'circle' },
-              { color: '#9b59b6', label: 'Iguana', type: 'circle' },
-              { color: '#f39c12', label: 'Jaguar', type: 'circle' },
-              { color: '#e74c3c', label: 'Kangaroo', type: 'circle' }
-            ]
-          }
-        ]}
+        sections={SHOWCASE_SECTIONS}
+        gap={10}
+        defaults={{ gap: { item: 10 } }}
       />
-    </ShowcaseSection>
-    <ShowcaseSection>
-      <ShowcaseTitle>Groups with groupSpacing</ShowcaseTitle>
-      <ColorKey items={SHOWCASE_GROUPS} groupSpacing={10} itemSpace={10} />
-    </ShowcaseSection>
-    <ShowcaseSection>
-      <ShowcaseTitle>groupTitleStyle</ShowcaseTitle>
+    )
+  },
+  {
+    title: 'Section titles (global and per-section)',
+    element: (
       <ColorKey
-        items={[
+        styles={{ sectionTitle: { fontWeight: 400 } }}
+        sections={[
           {
+            type: 'swatches',
             title: 'Group A',
-            groupTitleStyle: { color: '#e74c3c', fontSize: 14 },
-            items: [
-              { color: '#e74c3c', label: 'Circle', type: 'circle' },
-              { color: '#3498db', label: 'Square', type: 'square' }
+            titleStyle: { color: '#e74c3c', fontSize: 14 },
+            swatches: [
+              { color: '#e74c3c', label: 'Circle' },
+              { color: '#3498db', label: 'Square', shape: 'square' }
             ]
           },
           {
+            type: 'swatches',
             title: 'Group B (default)',
-            items: [{ color: '#2ecc71', label: 'Line', type: 'line' }]
+            swatches: [{ color: '#2ecc71', label: 'Line', shape: 'line' }]
           }
         ]}
-        groupTitleStyle={{ fontWeight: 400 }}
       />
-    </ShowcaseSection>
-    <ShowcaseSection>
-      <ShowcaseTitle>labelStyle (global, group, per-item)</ShowcaseTitle>
+    )
+  },
+  {
+    title: 'Labels (global and per-swatch)',
+    element: (
       <ColorKey
-        items={[
+        styles={{ label: { color: 'red', fontSize: 32 } }}
+        sections={[
           {
+            type: 'swatches',
             title: 'Group A',
-            labelStyle: { fontWeight: 600 },
-            items: [
-              { color: '#e74c3c', label: 'Bold', type: 'circle' },
+            swatches: [
+              { color: '#e74c3c', label: 'Inherited' },
               {
                 color: '#3498db',
                 label: 'Small',
-                type: 'circle',
                 labelStyle: { fontSize: 12 }
               }
             ]
           },
           {
-            items: [{ color: '#2ecc71', label: 'Default', type: 'circle' }]
+            type: 'swatches',
+            swatches: [{ color: '#2ecc71', label: 'Inherited' }]
           }
         ]}
-        labelStyle={{ color: 'red', fontSize: 32 }}
       />
-    </ShowcaseSection>
-  </ShowcaseContainer>
-)
-
-const ShowcaseSection = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 0px;
-  padding-bottom: 40px;
-  border-bottom: 1px solid #e0e0e0;
-  margin-bottom: 20px;
-`
-
-const ShowcaseTitle = styled.span`
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  opacity: 0.7;
-`
-
-const ShowcaseContainer = styled.div`
-  margin-top: 80px;
-  margin-bottom: 80px;
-  display: flex;
-  flex-direction: column;
-  gap: 40px;
-`
+    )
+  }
+]

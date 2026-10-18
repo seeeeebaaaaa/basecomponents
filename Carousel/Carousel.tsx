@@ -230,8 +230,7 @@ const Dot = styled.button<{ $active: boolean }>`
   border: none;
   padding: 0;
   cursor: pointer;
-  background: ${({ $active }) =>
-    $active ? 'var(--brandblue-main)' : 'var(--brandblue-main)'};
+  background: var(--brandblue-main);
   opacity: ${({ $active }) => ($active ? 1 : 0.2)};
   transition: opacity 0.2s;
 `

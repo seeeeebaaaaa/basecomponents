@@ -10,7 +10,6 @@ import styled from 'styled-components'
 const RadioToggleBar = ({
   selected,
   options,
-  labelProperty,
   onChange,
   title,
   style,
@@ -18,7 +17,6 @@ const RadioToggleBar = ({
 }: {
   selected: string
   options: Record<string, any>
-  labelProperty: string
   onChange: (selected: string | number) => void | undefined
   title?: string
   style?: React.CSSProperties,
