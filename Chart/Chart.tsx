@@ -7,6 +7,7 @@ import {
 } from '@ta-interaktiv/react-disco-grid'
 import { CSSProperties, ReactNode } from 'react'
 import styled from 'styled-components'
+import { useMFContext } from '../MFHelpers'
 
 const WidthCompoenents = {
   TextWidth,
@@ -26,7 +27,7 @@ const Chart = ({
   contentWidth = 'TextWidthExtendedFullMobile',
   spaceBefore = '30px',
   spaceAfter = '60px',
-  innerSpace = '30px',
+  innerSpace = '15px',
   addToHead,
   titleStyle
 }: {
@@ -54,6 +55,7 @@ const Chart = ({
   titleStyle?: CSSProperties
 }) => {
   const { title, subtitle, source, hint } = meta
+  const { colorMode } = useMFContext()
   const MetaWidth = WidthCompoenents[frameWidth]
 
   const MainWidth = WidthCompoenents[contentWidth]
@@ -71,9 +73,10 @@ const Chart = ({
       <MainWidth>{children as any}</MainWidth>
       <Spacer style={{ paddingTop: innerSpace }} />
       <MetaWidth>
-        {/* {hint && <Hint>{hint}</Hint>} */}
-
-        {source && <Source>{source}</Source>}
+        <Footer>
+          {hint && <Hint colorMode={colorMode}>{hint}</Hint>}
+          {source && <Source>{source}</Source>}
+        </Footer>
       </MetaWidth>
       <Spacer style={{ paddingTop: spaceAfter }} />
     </>
@@ -95,41 +98,44 @@ const Spacer = styled.div`
 export default Chart
 
 const Sub = styled.div`
-  font-size: 15px;
-  line-height: 1.6em;
-  margin-bottom: 2em;
+  font-size: 14px;
+  line-height: 23px;
+  margin-bottom: 10px;
   @media screen and (max-width: 768px) {
     font-size: 12px;
     line-height: 1.6em;
-    max-width: calc(100% - 40px);
   }
 `
 
 const Title = styled.h3`
   margin: 0;
   padding: 0;
-  font-size: 20px;
-  line-height: 1.5em;
-  margin-bottom: 0.5em;
-  max-width: 550px;
+  font-size: 21px;
+  line-height: 28px;
+  margin-bottom: 6px;
   @media screen and (max-width: 768px) {
     font-size: 20px;
     line-height: 1.4em;
-    max-width: calc(100% - 40px);
   }
 `
 
-const Hint = styled.div`
-  font-size: 14px;
-  line-height: 1.4em;
-  color: var(--gray-3);
-  margin-bottom: 10px;
+const Footer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 5px;
+`
+const Hint = styled.div<{ colorMode: 'light' | 'dark' }>`
+  font-size: 11px;
+  line-height: 18px;
+  color: ${({ colorMode }) =>
+    colorMode === 'light' ? 'var(--gray-1)' : 'var(--gray-4)'};
 `
 const Source = styled.div`
   font-size: 11px;
   line-height: 1.4em;
   color: var(--gray-3);
-  margin-top: 5px;
+
   a {
     text-decoration: none;
     font-size: 10px;
