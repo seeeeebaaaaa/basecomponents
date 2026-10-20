@@ -29,4 +29,4 @@ export {
   DEFAULT_SWATCH_SIZE,
   DEFAULT_TITLE_STYLE
 } from './ColorKeyDefaults'
-export { ColorKeyShowcase } from './ColorKeyShowcase'
+export { showcaseVariants } from './ColorKeyShowcase'

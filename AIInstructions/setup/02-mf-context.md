@@ -1,41 +1,8 @@
 # 02 MFContextProvider
 
-Goal: replace `LocaleContext` with `MFContextProvider`. The provider supplies locale, translations, color mode, mobile state and CMS properties to all children.
+`mfsetup` already installed the provider in `MainComponent.tsx`. Read this file when you build or change components that use context values.
 
-## Steps
-
-1. Delete `src/Contexts/LocaleContext.ts` and remove every import of it.
-2. Replace `src/components/MainComponent/MainComponent.tsx` with:
-
-```tsx
-import styled from 'styled-components'
-import { TamediaStyles, MicroFrontendProps } from '@ta-interaktiv/microfrontend-template-helpers'
-import { MFContextProvider, PartSplitter } from '@/components/MFHelpers'
-import ExampleComponent from '@/components/ExampleComponent'
-import de from '@/Locale/de'
-import fr from '@/Locale/fr'
-
-const MainComponent = ({ tenant, colorMode, properties = {}, trackEvent }: MicroFrontendProps) => (
-  <AppContainer $colorMode={colorMode}>
-    <MFContextProvider
-      locale={tenant.lang}
-      colorMode={colorMode}
-      translations={{ de, fr }}
-      tenantKey={tenant.key}
-      properties={properties}
-      trackEvent={trackEvent}
-    >
-      <PartSplitter currentPart={properties.part} parts={{ mainmap: { content: <ExampleComponent /> } }} />
-    </MFContextProvider>
-  </AppContainer>
-)
-
-const AppContainer = styled(TamediaStyles)``
-
-export default MainComponent
-```
-
-3. Read values inside components with `useMFContext()`:
+## Reading values
 
 ```tsx
 const { _t, isMobile, colorMode, currentLanguage, properties, trackEvent } = useMFContext()
@@ -58,3 +25,4 @@ const { _t, isMobile, colorMode, currentLanguage, properties, trackEvent } = use
 
 - `useMFContext()` throws outside `MFContextProvider`. Every component that uses it must render inside the provider.
 - Do not read `tenant.lang` or `colorMode` from props inside child components. Use the context.
+- Do not reintroduce `LocaleContext`.

@@ -23,7 +23,7 @@ Goal: render different parts of the micro-frontend depending on the CMS property
 - Outside development, only the part whose id equals `currentPart` renders.
 - In development (`import.meta.env.DEV`), all parts render.
 - If a part has `variants`, in development it renders once per variant wrapped in `MFPropertiesOverride`, so the component sees the variant's properties through `useMFContext()`.
-- `placeHolderHeights` sets an optional height per part id.
+- `placeHolderHeights` and `onVisible` are accepted by `PartSplitter` but are not applied yet. Do not rely on them until `Part` uses them.
 
 ## Rules
 
