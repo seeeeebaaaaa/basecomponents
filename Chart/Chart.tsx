@@ -9,6 +9,9 @@ import { CSSProperties, ReactNode } from 'react'
 import styled from 'styled-components'
 import { useMFContext } from '../MFHelpers'
 
+const InnerSpaceDesktop = '15px'
+const InnerSpaceMobile = '10px'
+
 const WidthCompoenents = {
   TextWidth,
   TextWidthExtended,
@@ -27,7 +30,7 @@ const Chart = ({
   contentWidth = 'TextWidthExtendedFullMobile',
   spaceBefore = '30px',
   spaceAfter = '60px',
-  innerSpace = '15px',
+  innerSpace,
   addToHead,
   titleStyle
 }: {
@@ -55,11 +58,15 @@ const Chart = ({
   titleStyle?: CSSProperties
 }) => {
   const { title, subtitle, source, hint } = meta
-  const { colorMode } = useMFContext()
+  const { colorMode, isMobile } = useMFContext()
   const MetaWidth = WidthCompoenents[frameWidth]
-
   const MainWidth = WidthCompoenents[contentWidth]
 
+  const innerSpaceValue = innerSpace
+    ? innerSpace
+    : isMobile
+    ? InnerSpaceMobile
+    : InnerSpaceDesktop
   return (
     <>
       <Spacer style={{ paddingTop: spaceBefore }} />
@@ -69,15 +76,17 @@ const Chart = ({
 
         {addToHead && <HeadAddition>{addToHead}</HeadAddition>}
       </MetaWidth>
-      <Spacer style={{ paddingTop: innerSpace }} />
+      <Spacer style={{ paddingTop: innerSpaceValue }} />
       <MainWidth>{children as any}</MainWidth>
-      <Spacer style={{ paddingTop: innerSpace }} />
-      <MetaWidth>
-        <Footer>
-          {hint && <Hint colorMode={colorMode}>{hint}</Hint>}
-          {source && <Source>{source}</Source>}
-        </Footer>
-      </MetaWidth>
+      <Spacer style={{ paddingTop: innerSpaceValue }} />
+      {(hint || source) && (
+        <MetaWidth>
+          <Footer>
+            {hint && <Hint colorMode={colorMode}>{hint}</Hint>}
+            {source && <Source>{source}</Source>}
+          </Footer>
+        </MetaWidth>
+      )}
       <Spacer style={{ paddingTop: spaceAfter }} />
     </>
   )
@@ -85,10 +94,7 @@ const Chart = ({
 
 const HeadAddition = styled.div`
   width: 100%;
-  margin-top: 15px;
-  @media screen and (max-width: 768px) {
-    max-width: calc(100% - 40px);
-  }
+  margin-top: 20px;
 `
 
 const Spacer = styled.div`
@@ -97,16 +103,6 @@ const Spacer = styled.div`
 
 export default Chart
 
-const Sub = styled.div`
-  font-size: 14px;
-  line-height: 23px;
-  margin-bottom: 10px;
-  @media screen and (max-width: 768px) {
-    font-size: 12px;
-    line-height: 1.6em;
-  }
-`
-
 const Title = styled.h3`
   margin: 0;
   padding: 0;
@@ -114,8 +110,17 @@ const Title = styled.h3`
   line-height: 28px;
   margin-bottom: 6px;
   @media screen and (max-width: 768px) {
-    font-size: 20px;
-    line-height: 1.4em;
+    font-size: 18px;
+    line-height: 27px;
+  }
+`
+const Sub = styled.div`
+  font-size: 14px;
+  line-height: 23px;
+  margin-bottom: 10px;
+  @media screen and (max-width: 768px) {
+    font-size: 13px;
+    line-height: 19px;
   }
 `
 
@@ -123,7 +128,6 @@ const Footer = styled.div`
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-top: 5px;
 `
 const Hint = styled.div<{ colorMode: 'light' | 'dark' }>`
   font-size: 11px;
@@ -144,6 +148,5 @@ const Source = styled.div`
   @media screen and (max-width: 768px) {
     line-height: 1.3em;
     font-size: 10px;
-    padding-left: 20px;
   }
 `
