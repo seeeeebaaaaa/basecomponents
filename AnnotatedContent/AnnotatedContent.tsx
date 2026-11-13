@@ -1,11 +1,14 @@
 import React from 'react'
 import {
   cloneElement,
+  createContext,
   isValidElement,
   ReactNode,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react'
@@ -41,6 +44,21 @@ interface StandardAnnotation extends BaseAnnotation {
 }
 
 export type Annotation = CustomAnnotation | StandardAnnotation
+
+type AnnotatedContentSize = {
+  width: number
+  height: number
+}
+
+const AnnotatedContentSizeContext = createContext<AnnotatedContentSize>({
+  width: 0,
+  height: 0,
+})
+
+/** Measured size of the nearest AnnotatedContent container. */
+export function useAnnotatedContentSize() {
+  return useContext(AnnotatedContentSizeContext)
+}
 
 
 
@@ -146,6 +164,7 @@ export const AnnotatedContent = ({
 
   // Only render annotations when container has been measured and content (e.g. images) has loaded
   const showAnnotations = width > 0 && height > 0 && contentLoaded
+  const containerSize = useMemo(() => ({ width, height }), [width, height])
 
   const validateAnnotation = useCallback((annotation: Annotation): boolean => {
     if (annotation.hide) return false
@@ -234,23 +253,25 @@ export const AnnotatedContent = ({
   )
 
   return (
-    <AnnotatedContentContainer
-      ref={ref}
-      style={style}
-      className={`annotated-content ${className}`.trim()}
-      onClick={devTools.handleClick}
-      aria-busy={!contentLoaded}
-    >
-      {devTools.overlay}
-      <div ref={contentRef} style={{ display: 'contents' }}>{children}</div>
-      {showAnnotations &&
-        annotations.filter(validateAnnotation).map((annotation, index) => {
-          const element = renderAnnotation(annotation, index)
-          return devTools.wrapAnnotation
-            ? devTools.wrapAnnotation(element, index, annotation.pos)
-            : element
-        })}
-    </AnnotatedContentContainer>
+    <AnnotatedContentSizeContext.Provider value={containerSize}>
+      <AnnotatedContentContainer
+        ref={ref}
+        style={style}
+        className={`annotated-content ${className}`.trim()}
+        onClick={devTools.handleClick}
+        aria-busy={!contentLoaded}
+      >
+        {devTools.overlay}
+        <div ref={contentRef} style={{ display: 'contents' }}>{children}</div>
+        {showAnnotations &&
+          annotations.filter(validateAnnotation).map((annotation, index) => {
+            const element = renderAnnotation(annotation, index)
+            return devTools.wrapAnnotation
+              ? devTools.wrapAnnotation(element, index, annotation.pos)
+              : element
+          })}
+      </AnnotatedContentContainer>
+    </AnnotatedContentSizeContext.Provider>
   )
 }
 
